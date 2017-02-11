@@ -8,7 +8,7 @@ PersistentSwift is available through [CocoaPods](http://cocoapods.org). To insta
 it, simply add the following line to your Podfile:
 
 ```ruby
-pod "PersistentSwift", :git => 'https://github.com/ahartwel/PersistentSwift'
+pod "PersistentSwift", :git => 'https://github.com/swarmnyc/PersistentSwift'
 ```
 
 ## Author
