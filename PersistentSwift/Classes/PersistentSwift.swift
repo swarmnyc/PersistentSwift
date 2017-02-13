@@ -203,6 +203,13 @@ open class PSNetworkManager<T: PSCachedModel, TestingData: TestData> {
         let request = APIMap.deleteObject(obj: obj);
         return service.makeRequestNoObjectReturn(request);
     }
+
+    open static func getObject(obj: T) -> Promise<T> {
+        typealias APIMap = PSServiceMap<T, TestingData>;
+        let service = PSService<APIMap, T>();
+        let request = APIMap.getObject(obj: obj);
+        return service.makeRequest(request);
+    }
     
     
     open static func getListOfObjects() -> Promise<[T]> {
