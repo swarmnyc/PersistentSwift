@@ -82,44 +82,30 @@ public class PSService<T:TargetType, V:PSCachedModel, D: TestData> {
     
 	/// get a MoyaProvider to make API calls
 	func getProvider() -> MoyaProvider<T> {
-		if PSServiceManager.isTesting {
-			let provider = MoyaProvider<T>(stubClosure: {
-				_ in
-				return .immediate;
-			}, plugins: [
-				AuthPlugin(tokenClosure: {
-
-					return PSServiceManager.authToken
-
-				}),
-				TimeoutPlugin<V, D>(timeoutGetter: self.getTimeout)
-			]);
-			return provider;
-		}
-		else {
-            
-			let provider = MoyaProvider<T>(
-				plugins: [
+            let provider = MoyaProvider<T>(stubClosure: {
+                _ in
+                if PSServiceManager.isTesting {
+                    return .immediate;
+                } else {
+                    return .never
+                }
+            }, plugins: [
 					AuthPlugin(tokenClosure: { return PSServiceManager.authToken }),
 					TimeoutPlugin<V, D>(timeoutGetter: self.getTimeout),
 					NetworkLoggerPlugin()
 				]
 			)
 			return provider;
-		}
 	}
 
 	// get a
 
-	public init() {
+    public init(timeoutIntervalGetter: ((PSServiceMap<V,D>) -> Double)?) {
+        self.getTimeout = timeoutIntervalGetter;
 
 	}
 
-	/// Init with timeout
-	convenience init(timeout: TimeInterval) {
-		self.init()
-	}
-
+	
 
 	//a wrapper for a request which returns a single object, type is the type of request, defined in the API map
 	public func makeRequest(_ type: T) -> Promise<V> {

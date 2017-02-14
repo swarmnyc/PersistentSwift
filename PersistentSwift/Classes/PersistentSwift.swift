@@ -188,8 +188,7 @@ open class PSNetworkManager<T: PSCachedModel, TestingData: TestData> {
     public typealias APIMap = PSServiceMap<T, TestingData>;
     
     public class func setUpService() -> PSService<APIMap, T, TestingData> {
-        let service = PSService<APIMap, T, TestingData>();
-        service.getTimeout = self.getTimeout;
+        let service = PSService<APIMap, T, TestingData>(timeoutIntervalGetter: self.getTimeout);
         return service;
     }
     
@@ -204,13 +203,13 @@ open class PSNetworkManager<T: PSCachedModel, TestingData: TestData> {
     }
     
     open static func updateObject(obj: T) -> Promise<T> {
-        let service = PSService<APIMap, T, TestingData>();
+        let service = self.setUpService();
         let request = APIMap.updateObject(obj: obj);
         return service.makeRequest(request);
     }
     
     open static func deleteObject(obj: T) -> Promise<Void> {
-        let service = PSService<APIMap, T, TestingData>();
+        let service = self.setUpService();
         let request = APIMap.deleteObject(obj: obj);
         return service.makeRequestNoObjectReturn(request);
     }
