@@ -69,6 +69,10 @@ class JSONApiTesting: XCTestCase {
     }
     
     class ArticlesTestData: TestData {
+        public static var getTestData: Data {
+            return Data();
+        }
+
         
         public static var getListPaginatedTestData: Data {
             return Data();
@@ -92,7 +96,18 @@ class JSONApiTesting: XCTestCase {
         
     }
 
+    
+    
     class ArticlesNetworkManager: PSNetworkManager<Articles, ArticlesTestData> {
+        override open class func getTimeout(_ target: APIMap) -> Double {
+            switch target {
+            case .createObject( _):
+                return 10;
+            default:
+                return 3;
+            }
+        }
+
     }
     
     

@@ -183,53 +183,60 @@ open class PSModelCache {
 //Generic Network Manager
 open class PSNetworkManager<T: PSCachedModel, TestingData: TestData> {
     
+    
+    
+    public typealias APIMap = PSServiceMap<T, TestingData>;
+    
+    public class func setUpService() -> PSService<APIMap, T, TestingData> {
+        let service = PSService<APIMap, T, TestingData>();
+        service.getTimeout = self.getTimeout;
+        return service;
+    }
+    
+    open class func getTimeout(_ target: APIMap) -> Double {
+        return 30;
+    }
+    
     open static func saveNewObject(obj: T) -> Promise<T> {
-        typealias APIMap = PSServiceMap<T, TestingData>;
-        let service = PSService<APIMap, T>();
+        let service = self.setUpService();
         let request = APIMap.createObject(obj: obj);
         return service.makeRequest(request);
     }
     
     open static func updateObject(obj: T) -> Promise<T> {
-        typealias APIMap = PSServiceMap<T, TestingData>;
-        let service = PSService<APIMap, T>();
+        let service = PSService<APIMap, T, TestingData>();
         let request = APIMap.updateObject(obj: obj);
         return service.makeRequest(request);
     }
     
     open static func deleteObject(obj: T) -> Promise<Void> {
-        typealias APIMap = PSServiceMap<T, TestingData>;
-        let service = PSService<APIMap, T>();
+        let service = PSService<APIMap, T, TestingData>();
         let request = APIMap.deleteObject(obj: obj);
         return service.makeRequestNoObjectReturn(request);
     }
 
     open static func getObject(obj: T) -> Promise<T> {
-        typealias APIMap = PSServiceMap<T, TestingData>;
-        let service = PSService<APIMap, T>();
+        let service = self.setUpService();
         let request = APIMap.getObject(obj: obj);
         return service.makeRequest(request);
     }
     
     
     open static func getListOfObjects() -> Promise<[T]> {
-        typealias APIMap = PSServiceMap<T, NoTestData>;
-        let service = PSService<APIMap, T>();
+        let service = self.setUpService();
         let request = APIMap.getList;
         return service.makeRequestArray(request);
     }
     
     open static func getListOfObjects(params: [String: Any]) -> Promise<[T]> {
-        typealias APIMap = PSServiceMap<T, NoTestData>;
-        let service = PSService<APIMap, T>();
+        let service = self.setUpService();
         let request = APIMap.getListWith(params: params);
         return service.makeRequestArray(request);
     }
     
 
     open static func getPaginatedList(page: Int, limit: Int, params: [String: Any]) -> Promise<[T]> {
-        typealias APIMap = PSServiceMap<T, NoTestData>;
-        let service = PSService<APIMap, T>();
+        let service = self.setUpService();
         let request = APIMap.getListPaginated(page: page, limit: limit, params: params);
         return service.makeRequestArray(request);
     }

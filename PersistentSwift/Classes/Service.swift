@@ -46,18 +46,40 @@ class DefaultAlamofireManager: Alamofire.SessionManager {
 }
 
 
+public struct TimeoutPlugin<T:PSCachedModel, D:TestData>: PluginType {
+    
+    var timeoutGetter: ((PSServiceMap<T,D>) -> Double)?
+    
+    init(timeoutGetter: ((PSServiceMap<T,D>) -> Double)?) {
+        self.timeoutGetter = timeoutGetter
+    }
+    
+    /// Called to modify a request before sending
+    public func prepare(_ request: URLRequest, target: TargetType) -> URLRequest {
+        var req = request;
+        if let timeout = self.timeoutGetter?(target as! PSServiceMap<T,D>) {
+            req.timeoutInterval = timeout;
+        }
+        return req;
+    }
+    
+    
+}
+
+
 //A Generic class for making network requests (to be subclassed for each section of the API eg. AvatarService, EventService, UserService etc
 
-class PSService<T:TargetType, V:PSCachedModel> {
+public class PSService<T:TargetType, V:PSCachedModel, D: TestData> {
 
 
 	var baseUrl: String = "";
-	var timeOut : TimeInterval = 30; // 30 second timeout by default
-
+    
 	//the actual object used to make the requests
 	lazy var provider: MoyaProvider<T> = self.getProvider();
 	var authToken: String?
 
+    public var getTimeout: ((PSServiceMap<V,D>) -> Double)?
+    
 	/// get a MoyaProvider to make API calls
 	func getProvider() -> MoyaProvider<T> {
 		if PSServiceManager.isTesting {
@@ -69,16 +91,17 @@ class PSService<T:TargetType, V:PSCachedModel> {
 
 					return PSServiceManager.authToken
 
-				})
+				}),
+				TimeoutPlugin<V, D>(timeoutGetter: self.getTimeout)
 			]);
 			return provider;
 		}
 		else {
-
+            
 			let provider = MoyaProvider<T>(
-				manager: DefaultAlamofireManager.sharedManager(timeOut),
 				plugins: [
 					AuthPlugin(tokenClosure: { return PSServiceManager.authToken }),
+					TimeoutPlugin<V, D>(timeoutGetter: self.getTimeout),
 					NetworkLoggerPlugin()
 				]
 			)
@@ -95,7 +118,6 @@ class PSService<T:TargetType, V:PSCachedModel> {
 	/// Init with timeout
 	convenience init(timeout: TimeInterval) {
 		self.init()
-		self.timeOut = timeout
 	}
 
 

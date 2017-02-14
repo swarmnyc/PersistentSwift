@@ -72,6 +72,10 @@ public enum PSServiceMap<T:PSCachedModel, D:TestData> {
 
 
 extension PSServiceMap: TargetType {
+    
+    typealias Model = T;
+    typealias TestData = D;
+    
 	/// The target's base `URL`.
 	public var baseURL: URL {
 		return URL(string: PSServiceManager.constants.baseUrl)!;
