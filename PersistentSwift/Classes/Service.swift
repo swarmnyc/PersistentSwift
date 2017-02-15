@@ -11,25 +11,6 @@ import Moya
 import PromiseKit
 import Alamofire
 
-open class PSServiceManager {
-
-	static var constants = ServiceConstants(baseUrl: "");
-	static var authToken: String?
-	static var isTesting: Bool = false;
-
-	open static func setBaseUrl(_ url: String) {
-		PSServiceManager.constants.baseUrl = url;
-	}
-
-	open static func setAuthToken(token: String) {
-		PSServiceManager.authToken = token;
-	}
-
-	open static func setIsTesting(_ bool: Bool) {
-		self.isTesting = bool;
-	}
-
-}
 
 /// Extend default Manager to support timeout
 class DefaultAlamofireManager: Alamofire.SessionManager {
@@ -46,18 +27,18 @@ class DefaultAlamofireManager: Alamofire.SessionManager {
 }
 
 
-public struct TimeoutPlugin<T:PSCachedModel, D:TestData>: PluginType {
+public struct TimeoutPlugin<T:PSCachedModel, D:TestData, S: PSServiceSettings>: PluginType {
     
-    var timeoutGetter: ((PSServiceMap<T,D>) -> Double)?
+    var timeoutGetter: ((PSServiceMap<T,D,S>) -> Double)?
     
-    init(timeoutGetter: ((PSServiceMap<T,D>) -> Double)?) {
+    init(timeoutGetter: ((PSServiceMap<T,D,S>) -> Double)?) {
         self.timeoutGetter = timeoutGetter
     }
     
     /// Called to modify a request before sending
     public func prepare(_ request: URLRequest, target: TargetType) -> URLRequest {
         var req = request;
-        if let timeout = self.timeoutGetter?(target as! PSServiceMap<T,D>) {
+        if let timeout = self.timeoutGetter?(target as! PSServiceMap<T,D,S>) {
             req.timeoutInterval = timeout;
         }
         return req;
@@ -67,56 +48,86 @@ public struct TimeoutPlugin<T:PSCachedModel, D:TestData>: PluginType {
 }
 
 
+
+public protocol PSServiceSettings {
+  
+    static var baseUrl: String { get }
+    static var isTesting: Bool { get }
+    
+    static func getTimeout<Model: PSCachedModel, TestD: TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> Double
+    static func getAuthToken<Model: PSCachedModel, TestD: TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> String?
+    
+}
+
+
+struct TestSettings: PSServiceSettings {
+    static var baseUrl: String {
+        return "";
+    }
+    
+    static var isTesting: Bool {
+        return false;
+    }
+    
+    static func getTimeout<Model : PSCachedModel, TestD : TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> Double {
+        return 12;
+    }
+    
+    static func getAuthToken<Model : PSCachedModel, TestD : TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> String? {
+        return nil;
+    }
+    
+    
+}
+
+
+
+
+
+
+
 //A Generic class for making network requests (to be subclassed for each section of the API eg. AvatarService, EventService, UserService etc
 
-public class PSService<T:TargetType, V:PSCachedModel, D: TestData> {
-
-
+public class PSService<T:PSCachedModel, D: TestData, S: PSServiceSettings> {
+    
 	var baseUrl: String = "";
     
 	//the actual object used to make the requests
-	lazy var provider: MoyaProvider<T> = self.getProvider();
+	lazy var provider: MoyaProvider<PSServiceMap<T, D, S>> = self.getProvider();
 	var authToken: String?
 
-    public var getTimeout: ((PSServiceMap<V,D>) -> Double)?
     
 	/// get a MoyaProvider to make API calls
-	func getProvider() -> MoyaProvider<T> {
-            let provider = MoyaProvider<T>(stubClosure: {
+	func getProvider() -> MoyaProvider<PSServiceMap<T, D, S>> {
+            let provider = MoyaProvider<PSServiceMap<T, D, S>>(stubClosure: {
                 _ in
-                if PSServiceManager.isTesting {
+                if S.isTesting {
                     return .immediate;
                 } else {
                     return .never
                 }
             }, plugins: [
-					AuthPlugin(tokenClosure: { return PSServiceManager.authToken }),
-					TimeoutPlugin<V, D>(timeoutGetter: self.getTimeout),
+                    AuthPlugin<T, D, S>(tokenClosure: S.getAuthToken),
+					TimeoutPlugin<T, D, S>(timeoutGetter: S.getTimeout),
 					NetworkLoggerPlugin()
 				]
 			)
 			return provider;
 	}
 
-	// get a
-
-    public init(timeoutIntervalGetter: ((PSServiceMap<V,D>) -> Double)?) {
-        self.getTimeout = timeoutIntervalGetter;
-
-	}
 
 	
 
 	//a wrapper for a request which returns a single object, type is the type of request, defined in the API map
-	public func makeRequest(_ type: T) -> Promise<V> {
-		let promise = Promise<V>.pending();
+	public func makeRequest(_ type: PSServiceMap<T, D, S>) -> Promise<T> {
+		let promise = Promise<T>.pending();
 		Background.runInBackground {
 			self.provider.request(type, completion: {
 				result in
 				switch result {
 					case let .success(moyaResponse):
 						do {
-							let object = try moyaResponse.map(to: V.self);
+							let object = try moyaResponse.map(to: T.self);
 							Background.runInMainThread {
 								promise.fulfill(object);
 							}
@@ -140,7 +151,7 @@ public class PSService<T:TargetType, V:PSCachedModel, D: TestData> {
 		return promise.promise;
 	}
 
-	public func makeRequestNoObjectReturn(_ type: T) -> Promise<Void> {
+	public func makeRequestNoObjectReturn(_ type: PSServiceMap<T, D, S>) -> Promise<Void> {
 		let promise = Promise<Void>.pending();
 		Background.runInBackground {
 			self.provider.request(type, completion: {
@@ -175,15 +186,15 @@ public class PSService<T:TargetType, V:PSCachedModel, D: TestData> {
 
 
 	//a wrapper for a request which returns an array of objects
-	public func makeRequestArray(_ type: T) -> Promise<[V]> {
-		let promise = Promise<[V]>.pending();
+	public func makeRequestArray(_ type: PSServiceMap<T, D, S>) -> Promise<[T]> {
+		let promise = Promise<[T]>.pending();
 		Background.runInBackground {
 			self.provider.request(type, completion: {
 				result in
 				switch result {
 					case let .success(moyaResponse):
 						do {
-							let objects = try moyaResponse.map(to: [V.self]) as! [V];
+							let objects = try moyaResponse.map(to: [T.self]) as! [T];
 							Background.runInMainThread {
 								promise.fulfill(objects);
 							}
@@ -206,6 +217,142 @@ public class PSService<T:TargetType, V:PSCachedModel, D: TestData> {
 
 		return promise.promise;
 	}
-
+    
+    
+    
 
 }
+
+public enum PSServiceMap<T: PSCachedModel, D: TestData, S: PSServiceSettings> {
+    case getList
+    case getListWith(params: [String: Any])
+    case getListPaginated(page: Int, limit: Int, params: [String: Any]);
+    case createObject(obj: T)
+    case updateObject(obj: T)
+    case deleteObject(obj: T)
+    case getObject(obj: T)
+}
+
+
+extension PSServiceMap: TargetType {
+    
+    typealias Model = T;
+    typealias TestData = D;
+    
+    
+    /// The target's base `URL`.
+    public var baseURL: URL {
+        return URL(string: S.baseUrl)!;
+    }
+    
+    /// The path to be appended to `baseURL` to form the full `URL`.
+    public var path: String {
+        switch self {
+        case .getList:
+            return "/\(T.modelName)";
+        case .getListWith(_):
+            return "\(T.modelName)";
+        case .getListPaginated(_):
+            return "\(T.modelName)";
+        case .createObject(let obj):
+            return "/\(T.modelName)";
+        case .updateObject(let obj):
+            return "/\(T.modelName)/\(obj.id)";
+        case .deleteObject(let obj):
+            return "/\(T.modelName)/\(obj.id)";
+        case .getObject(let obj):
+            return "/\(T.modelName)/\(obj.id)";
+        }
+    }
+    
+    /// The HTTP method used in the request.
+    public var method: Moya.Method {
+        switch self {
+        case .getList:
+            return .get;
+        case .getListWith(_):
+            return .get;
+        case .getListPaginated(_):
+            return .get;
+        case .createObject(_):
+            return .post;
+        case .updateObject(obj: _):
+            return .patch;
+        case .deleteObject(_):
+            return .delete
+        case .getObject(_):
+            return .get
+        }
+    }
+    
+    /// The parameters to be incoded in the request.
+    public var parameters: [String: Any]? {
+        switch self {
+        case .getList:
+            return nil;
+        case .getListWith(let params):
+            return params;
+        case .getListPaginated(let page, let limit, let params):
+            var p = params;
+            p["page"] = page;
+            p["per_page"] = limit;
+            return p;
+        case .createObject(let obj):
+            return obj.getCreateParameters(fromModelName: T.modelName);
+        case .updateObject(let obj):
+            return obj.getCreateParameters(fromModelName: T.modelName);
+        case .deleteObject(_):
+            return nil;
+        case .getObject(let obj):
+            return obj.getCreateParameters(fromModelName: T.modelName);
+        }
+    }
+    
+    /// The method used for parameter encoding.
+    public var parameterEncoding: ParameterEncoding {
+        switch self {
+        case .getList:
+            return URLEncoding.default;
+        case .getListWith(_):
+            return URLEncoding.default;
+        case .getListPaginated(_):
+            return URLEncoding.default;
+        case .createObject(_):
+            return JSONEncoding.default;
+        case .updateObject(_):
+            return JSONEncoding.default;
+        case .deleteObject(_):
+            return URLEncoding.default;
+        case .getObject(_):
+            return JSONEncoding.default;
+        }
+    }
+    
+    /// Provides stub data for use in testing.
+    public var sampleData: Data {
+        switch self {
+        case .getList:
+            return D.getListTestData;
+        case .getListWith(_):
+            return D.getListWithParamsTestData;
+        case .getListPaginated(_):
+            return D.getListPaginatedTestData;
+        case .createObject(_):
+            return D.getCreateTestData;
+        case .updateObject(_):
+            return D.getCreateTestData;
+        case .deleteObject(_):
+            return D.deleteTestData;
+        case .getObject(_):
+            return D.getTestData;
+        }
+    }
+    
+    /// The type of HTTP task to be performed.
+    public var task: Task {
+        return Task.request
+    }
+    
+    
+}
+

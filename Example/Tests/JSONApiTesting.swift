@@ -14,6 +14,26 @@ import PromiseKit
 class JSONApiTesting: XCTestCase {
     
     
+    public struct ArticleSettings: PSServiceSettings {
+        
+        static var isTesting: Bool {
+            return true;
+        }
+        
+        static var baseUrl: String {
+            return "http://google.com/"
+        }
+        
+        static func getTimeout<Model : PSCachedModel, TestD : TestData, S : PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> Double {
+            return 12;
+        }
+        
+        static func getAuthToken<Model : PSCachedModel, TestD : TestData, S : PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> String? {
+            return nil;
+        }
+    }
+    
+    
     class Author: PSCachedModel {
         override class var modelName: String {
             return "authors";
@@ -21,7 +41,7 @@ class JSONApiTesting: XCTestCase {
     }
     public class Articles: PSCachedModel {
         
-        typealias ArticleService = PSServiceMap<Articles, ArticlesTestData>
+        typealias ArticleService = PSServiceMap<Articles, ArticlesTestData,ArticleSettings>
         
         override class var modelName: String {
             return "articles";
@@ -98,16 +118,11 @@ class JSONApiTesting: XCTestCase {
 
     
     
-    class ArticlesNetworkManager: PSNetworkManager<Articles, ArticlesTestData> {
-        override open class func getTimeout(_ target: APIMap) -> Double {
-            switch target {
-            case .createObject( _):
-                return 10;
-            default:
-                return 3;
-            }
-        }
-
+    class ArticlesNetworkManager: PSNetworkManager<Articles, ArticlesTestData, ArticleSettings> {
+        static var shared: ArticlesNetworkManager = ArticlesNetworkManager();
+        
+       
+        
     }
     
     
@@ -123,11 +138,9 @@ class JSONApiTesting: XCTestCase {
     
     
     func testGetRequest() {
-        PSServiceManager.setBaseUrl("http://www.google.com");
-        PSServiceManager.setIsTesting(true);
+       
         let exp = self.expectation(description: "will get a list of articles");
-        
-        ArticlesNetworkManager.getListOfObjects().then(execute: {
+        ArticlesNetworkManager.shared.getListOfObjects().then(execute: {
             articles -> Void in
             XCTAssertEqual(articles.count, 1)
             XCTAssertEqual(articles[0].title, "JSON API paints my bikeshed!");
@@ -143,9 +156,7 @@ class JSONApiTesting: XCTestCase {
     }
     
     func testCreatingPostParams() {
-        PSServiceManager.setBaseUrl("http://www.google.com");
-        PSServiceManager.setIsTesting(true);
-        
+       
         let article = Articles();
         article.title = "test title";
         article.body = "test body";
@@ -204,9 +215,7 @@ class JSONApiTesting: XCTestCase {
     
     func testCreateRequest() {
         let exp = self.expectation(description: "will create an article");
-        PSServiceManager.setBaseUrl("http://google.com");
-        PSServiceManager.setIsTesting(true);
-        
+       
         let article = Articles();
         article.title = "test title";
         article.body = "test body";
@@ -214,7 +223,7 @@ class JSONApiTesting: XCTestCase {
         
         
         
-        ArticlesNetworkManager.saveNewObject(obj: article).then(execute: {
+        ArticlesNetworkManager.shared.saveNewObject(obj: article).then(execute: {
             article -> Void in
             XCTAssertEqual(article.authorId, "test id");
             XCTAssertEqual(article.title, "test title");
@@ -258,13 +267,12 @@ class JSONApiTesting: XCTestCase {
     
     func testDeleteData() {
         let exp = self.expectation(description: "will delete an article");
-        PSServiceManager.setBaseUrl("http://google.com");
-        PSServiceManager.setIsTesting(true);
+        
         let article = Articles();
         article.title = "test title";
         article.body = "test body";
         article.authorId = "test id";
-        ArticlesNetworkManager.deleteObject(obj: article).then {
+        ArticlesNetworkManager.shared.deleteObject(obj: article).then {
             exp.fulfill();
             }.catch {_ in 
                 XCTAssert(false, "this request never finished");

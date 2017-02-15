@@ -42,7 +42,7 @@ open class PSModelCache {
     
     public static var shared: PSModelCache = PSModelCache();
     public var models: [PSCachedModel.Type] = [];
-    
+
     
     var dictionaryCache: [String: [String: PSCachedModel]] = [:];
     
@@ -180,62 +180,58 @@ open class PSModelCache {
     
 }
 
+
+protocol NM {
+    typealias NetworkManager = Self
+}
+
 //Generic Network Manager
-open class PSNetworkManager<T: PSCachedModel, TestingData: TestData> {
+open class PSNetworkManager<T: PSCachedModel, TestingData: TestData, S: PSServiceSettings>: NM {
     
-    
-    
-    public typealias APIMap = PSServiceMap<T, TestingData>;
-    
-    public class func setUpService() -> PSService<APIMap, T, TestingData> {
-        let service = PSService<APIMap, T, TestingData>(timeoutIntervalGetter: self.getTimeout);
-        return service;
+    public typealias APIMap = PSServiceMap<T, TestingData, S>;
+  
+    lazy var service: PSService<T, TestingData, S> = {
+        return PSService<T, TestingData, S>()
+    }()
+   
+    public init() {
+        
     }
     
-    open class func getTimeout(_ target: APIMap) -> Double {
-        return 30;
-    }
     
-    open static func saveNewObject(obj: T) -> Promise<T> {
-        let service = self.setUpService();
+    open func saveNewObject(obj: T) -> Promise<T> {
         let request = APIMap.createObject(obj: obj);
         return service.makeRequest(request);
     }
     
-    open static func updateObject(obj: T) -> Promise<T> {
-        let service = self.setUpService();
+    open func updateObject(obj: T) -> Promise<T> {
         let request = APIMap.updateObject(obj: obj);
         return service.makeRequest(request);
     }
     
-    open static func deleteObject(obj: T) -> Promise<Void> {
-        let service = self.setUpService();
+    open func deleteObject(obj: T) -> Promise<Void> {
         let request = APIMap.deleteObject(obj: obj);
         return service.makeRequestNoObjectReturn(request);
     }
 
-    open static func getObject(obj: T) -> Promise<T> {
-        let service = self.setUpService();
+    open func getObject(obj: T) -> Promise<T> {
         let request = APIMap.getObject(obj: obj);
         return service.makeRequest(request);
     }
     
     
-    open static func getListOfObjects() -> Promise<[T]> {
-        let service = self.setUpService();
+    open func getListOfObjects() -> Promise<[T]> {
         let request = APIMap.getList;
         return service.makeRequestArray(request);
     }
     
-    open static func getListOfObjects(params: [String: Any]) -> Promise<[T]> {
-        let service = self.setUpService();
+    open func getListOfObjects(params: [String: Any]) -> Promise<[T]> {
         let request = APIMap.getListWith(params: params);
         return service.makeRequestArray(request);
     }
     
 
-    open static func getPaginatedList(page: Int, limit: Int, params: [String: Any]) -> Promise<[T]> {
-        let service = self.setUpService();
+    open func getPaginatedList(page: Int, limit: Int, params: [String: Any]) -> Promise<[T]> {
         let request = APIMap.getListPaginated(page: page, limit: limit, params: params);
         return service.makeRequestArray(request);
     }
