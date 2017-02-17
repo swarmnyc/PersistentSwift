@@ -181,12 +181,8 @@ open class PSModelCache {
 }
 
 
-protocol NM {
-    typealias NetworkManager = Self
-}
-
 //Generic Network Manager
-open class PSNetworkManager<T: PSCachedModel, TestingData: TestData, S: PSServiceSettings>: NM {
+open class PSNetworkManager<T: PSCachedModel, TestingData: TestData, S: PSServiceSettings> {
     
     public typealias APIMap = PSServiceMap<T, TestingData, S>;
   
@@ -443,6 +439,239 @@ open class PSModelValue<T: Any>: PSModelValueProtocol {
     
 }
 
+
+
+
+public protocol PSJSONAPIProperty: class {
+    var jsonKey: String { get set }
+    
+    
+    func serializeToJSON() -> Any?
+    func deserializeFromJSON(_ json: JSON)
+    func decode(_ aDecoder: NSCoder)
+}
+
+public protocol PSJSONAPIWithGet: PSJSONAPIProperty {
+    associatedtype ValueType
+    
+    var value: ValueType? { get set }
+    
+    var deserialize: ((Any) -> ValueType?)? { get set }
+    var serialize: ((ValueType) -> Any)?{ get set }
+    
+    
+    func get() -> ValueType?
+    func set(_ value: ValueType?)
+}
+
+
+extension PSJSONAPIWithGet {
+    public func get() -> ValueType? {
+        return self.value;
+    }
+    
+    public func set(_ value: ValueType?) {
+        self.value = value;
+    }
+    
+    public func decode(_ aDecoder: NSCoder) {
+        if let value = aDecoder.decodeObject(forKey: self.jsonKey) as? ValueType {
+            self.set(value);
+        }
+    }
+    
+}
+
+public class PSAttribute<T>: PSJSONAPIWithGet {
+    public var value: T?
+
+    public var deserialize: ((Any) -> T?)?
+    public var serialize: ((T) -> Any)?
+    
+    public var jsonKey: String = "";
+    
+    public init(value: T, serialize: ((_ value: T) -> Any)?, jsonKey: String?, deserialize: ((Any) -> T?)?) {
+        self.value = value;
+        if let jsonKey = jsonKey {
+            self.jsonKey = jsonKey;
+        }
+        self.deserialize = deserialize;
+        self.serialize = serialize;
+    }
+    
+    public required init() {
+        
+    }
+    
+    public func serializeToJSON() -> Any? {
+        if let v = self.value {
+            if let serialize = self.serialize {
+                return serialize(v);
+            } else {
+                return v;
+            }
+        }
+        return nil;
+    }
+    
+    public func deserializeFromJSON(_ json: JSON) {
+        let paths = self.jsonKey.components(separatedBy: ".");
+        var j = json;
+        for path in paths {
+            if let value = j[path].rawValue as? ValueType {
+                self.value = value;
+            } else {
+                j = j[path];
+            }
+        }
+        if let deserialize = self.deserialize {
+            if let value = deserialize(j.rawValue) {
+                self.value = value;
+            }
+        }
+    }
+    
+    public func decode(_ aDecoder: NSCoder) {
+        if let value = aDecoder.decodeObject(forKey: self.jsonKey) as? ValueType {
+            self.set(value);
+        }
+    }
+
+}
+
+
+public class PSToOne<T: PSCachedModel>: PSJSONAPIWithGet {
+    
+    public var value: T?
+     public var jsonKey: String = "";
+    
+    public var deserialize: ((Any) -> T?)?
+    public var serialize: ((T) -> Any)?
+    
+    
+    public var id: String = "";
+    
+    convenience public init(value: T?, jsonKey: String) {
+        self.init();
+        self.value = value;
+        self.jsonKey = jsonKey;
+    }
+    
+    
+    public func set(_ value: T?) {
+        self.value = value;
+        if value == nil {
+            self.id = "";
+        } else {
+            if let v = value {
+                self.id = v.id;
+            }
+        }
+    }
+    
+    
+    public func serializeToJSON() -> Any? {
+        var topLevel: [String: Any] = [:];
+        var data: [String: Any] = [:];
+        data["type"] = T.modelName;
+        data["id"] = self.id;
+        topLevel["data"] = data;
+        return topLevel;
+    }
+    
+    public func deserializeFromJSON(_ json: JSON) {
+        if let id = json[jsonKey]["data"]["id"].string {
+            self.id = id;
+        }
+    }
+    
+    
+    public func decode(_ aDecoder: NSCoder) {
+        if let value = aDecoder.decodeObject(forKey: self.jsonKey) as? [String: Any] {
+            let json = JSON([self.jsonKey: value]);
+            self.deserializeFromJSON(json);
+        }
+
+    }
+    
+}
+
+public class PSToMany<T: PSCachedModel>: PSJSONAPIWithGet {
+   
+
+    public var jsonKey: String = "";
+    
+    public var value: [T]?
+    public var ids: [String] = [];
+    
+    public var deserialize: ((Any) -> [T]?)?
+    public var serialize: (([T]) -> Any)?
+    
+    convenience public init(value: [T]?, jsonKey: String) {
+        self.init();
+        self.value = value;
+        self.jsonKey = jsonKey;
+    }
+ 
+    
+    public func serializeToJSON() -> Any? {
+        var topLevel: [String: Any] = [:];
+        var data: [[String: Any]] = [];
+        for id in self.ids {
+            var d: [String: Any] = [:];
+            d["type"] = T.modelName;
+            d["id"] = id;
+            data.append(d);
+        }
+        topLevel["data"] = data;
+        return topLevel
+    }
+    
+    
+    public func deserializeFromJSON(_ json: JSON) {
+        if let dataArray = json[self.jsonKey]["data"].array {
+            var ids: [String] = [];
+            for data in dataArray {
+                if let i = data["id"].string {
+                    ids.append(i);
+                }
+            }
+            self.ids = ids;
+        }
+    }
+    
+    
+    public func addObject(_ obj: T) {
+        self.ids.append(obj.id);
+        self.value?.append(obj);
+    }
+    
+    public func set(_ value: Array<T>?) {
+        self.value = value;
+        if let values = self.value {
+            self.ids = [];
+            for value in values {
+                self.ids.append(value.id);
+            }
+        }
+    }
+    
+    public func decode(_ aDecoder: NSCoder) {
+        if let value = aDecoder.decodeObject(forKey: self.jsonKey) as? [String: Any] {
+            let json = JSON([self.jsonKey: value]);
+            self.deserializeFromJSON(json);
+        }
+    }
+    
+}
+
+
+
+
+
+
+
+
 /// Base cached model
 @objc open class PSCachedModel: NSObject, NSCoding {
     
@@ -498,25 +727,33 @@ open class PSModelValue<T: Any>: PSModelValueProtocol {
     
     public var isInCache: Bool = false;
     
-    open var attributes: [String: Any?] {
-        assertionFailure("You did not override attributes in PSCachedModel");
-        return [:];
-    }
     
-    open var relationships: [String: (ids: [String], type: PSCachedModel.Type)] {
-        assertionFailure("You did not override relationships in PSCachedModel");
-        return [:];
+    open var attributes: [PSJSONAPIProperty] {
+        assertionFailure("You did not override attributes in PSCachedModel");
+        return [];
+    };
+    
+    
+    open var relationships: [PSJSONAPIProperty] {
+        assertionFailure("You did not override toOneRelationships in PSCachedModel");
+        return [];
     }
+ 
+ 
     
     required public init?(json: JSON) {
         super.init();
         if let id = json["id"].string {
             self.id = id;
         }
-        let attributes = json["attributes"];
-        self.setUpAttributes(json: attributes);
+        let a = json["attributes"];
+        for atts in self.attributes {
+            atts.deserializeFromJSON(a);
+        }
         let relationships = json["relationships"];
-        self.setUpRelationships(json: relationships);
+        for rel in self.relationships {
+            rel.deserializeFromJSON(relationships);
+        }
     }
     
     public func getCreateParameters(fromModelName type: String) -> [String: Any]? {
@@ -527,30 +764,16 @@ open class PSModelValue<T: Any>: PSModelValueProtocol {
         
         var attributes: [String: Any] = [:];
         for att in self.attributes {
-            if let value = att.value {
-                attributes[att.key] = value;
-            }
+                if let j = att.serializeToJSON() {
+                    attributes[att.jsonKey] = j;
+                }
         }
         
         var relationships: [String: Any] = [:];
         for rel in self.relationships {
-            var topLevel: [String: Any] = [:];
-            if rel.value.ids.count == 1 {
-                var data: [String: Any] = [:];
-                data["type"] = rel.value.type.modelName;
-                data["id"] = rel.value.ids[0];
-                topLevel["data"] = data;
-            } else {
-                var data: [[String: Any]] = [];
-                for id in rel.value.ids {
-                    var subData: [String: Any] = [:];
-                    subData["type"] = rel.value.type.modelName;
-                    subData["id"] = id;
-                    data.append(subData);
-                }
-                topLevel["data"] = data;
+            if let j = rel.serializeToJSON() {
+                relationships[rel.jsonKey] = j;
             }
-            relationships[rel.key] = topLevel;
         }
         
         data["attributes"] = attributes;
@@ -564,32 +787,15 @@ open class PSModelValue<T: Any>: PSModelValueProtocol {
     }
     
     
-    public func encode(with aCoder: NSCoder) {
-        let mirror = Mirror(reflecting: self);
-        self.encodeFromMirror(mirror: mirror, aCoder: aCoder);
+    open func encode(with aCoder: NSCoder) {
+        for attribute in self.attributes {
+            aCoder.encode(attribute.serializeToJSON(), forKey: attribute.jsonKey);
+        }
+        for relationship in self.relationships {
+            aCoder.encode(relationship.serializeToJSON(), forKey: relationship.jsonKey);
+        }
     }
     
-    func encodeFromMirror(mirror: Mirror, aCoder: NSCoder) {
-        for child in mirror.children { //mirror the object so we can loop through the object's properties and get the saved values
-            
-            let enumMirror = Mirror(reflecting: child.value);
-            if enumMirror.displayStyle == Mirror.DisplayStyle.enum {
-                print("found an enum to be encoded. this is not possible yet, will not cache this value");
-            } else if let name = child.label {
-                if let value = child.value as? Any {
-                    if value is NSNull {
-                        print("value for key \(name) is NSNULL, not caching it");
-                    } else {
-                        aCoder.encode(child.value as? Any, forKey: name);
-                    }
-                }
-                
-            }
-        }
-        if let parent = mirror.superclassMirror {
-            self.encodeFromMirror(mirror: parent, aCoder: aCoder);
-        }
-    }
     
     
     
@@ -597,34 +803,7 @@ open class PSModelValue<T: Any>: PSModelValueProtocol {
         super.init();
     }
     
-    
-    open func setUpAttributes(json: JSON) {
-        assertionFailure("Did not override setUpAttributes in model");
-    }
-    
-    open func setUpRelationships(json: JSON) {
-        assertionFailure("Did not override setUpRelationships in model");
-    }
-    
-    public func getRelationshipIds(fromKey key: String, fromJSON json: JSON) -> [String]? {
-        if let dataArray = json[key]["data"].array {
-            var ids: [String] = [];
-            for data in dataArray {
-                if let i = data["id"].string {
-                    ids.append(i);
-                }
-            }
-            return ids;
-        } else if let data = json[key]["data"] as? JSON {
-            if let string = data["id"].string {
-                return [string]
-            }
-        }
-        return nil;
-        
-    }
-  
-    
+      
     
     //FOR TESTING PURPOSES ONLY
     public func forTestingAddToCache(cache: PSModelCache) -> Bool {
@@ -654,38 +833,12 @@ open class PSModelValue<T: Any>: PSModelValueProtocol {
     
     required public init?(coder aDecoder: NSCoder) {
         super.init();
-        let mirror = Mirror(reflecting: self);
-        self.initFromMirror(mirror: mirror, aDecoder: aDecoder);
-    }
-    
-    func initFromMirror(mirror: Mirror, aDecoder: NSCoder) {
-        for child in mirror.children { //mirror the object so we can loop through the object'ss properties and get the saved values
-            if let name = child.label {
-                
-                if aDecoder.containsValue(forKey: name) {
-                    let enumMirror = Mirror(reflecting: child.value);
-                    if enumMirror.displayStyle == Mirror.DisplayStyle.enum {
-                        print("FOUND AN ENUM TO DECODE, THIS IS NOT POSSIBLE YET");
-                    } else {
-                        
-                        if let value = aDecoder.decodeObject(forKey: name) as? Any {
-                            if value is NSNull {
-                                print("the value for \(name) was NSNull, we are not loading it from the cache");
-                            } else if self.responds(to: Selector(name)) {
-                                setValue(value, forKey: name);
-                            } else {
-                                self.setValue(value, forUndefinedKey: name);
-                                print("the value \(name) did not respond to selector, set it up in an ovverride of setValue forUndefinedKey in your model");
-                            }
-                        }
-                    }
-                } else {
-                    print("There was no value in key \(name). We are not loading it from the cache");
-                }
-            }
+        
+        for attribute in self.attributes {
+            attribute.decode(aDecoder)
         }
-        if let parent = mirror.superclassMirror {
-            self.initFromMirror(mirror: parent, aDecoder: aDecoder);
+        for relationship in self.relationships {
+            relationship.decode(aDecoder);
         }
     }
     

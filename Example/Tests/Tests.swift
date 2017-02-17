@@ -41,29 +41,58 @@ class Tests: XCTestCase {
                 }
             }
             
+            var relToMany: PSToMany<TestModel> = PSToMany<TestModel>(value: [], jsonKey: "relToMany");
+            var relToOne: PSToOne<TestModel> = PSToOne<TestModel>(value: nil, jsonKey: "relToOne");
             
-            var name: String = "Hello";
+            var testProperty: PSAttribute<String> = PSAttribute<String>(value: "test", serialize: nil, jsonKey: "test", deserialize: nil);
+            var name: PSAttribute<String> = PSAttribute<String>(value: "name", serialize: nil, jsonKey: "name", deserialize: nil);
             var isLive: Bool = true;
-            var number: Double = 1000;
             
+            override var attributes: [PSJSONAPIProperty] {
+                return [self.testProperty, self.name];
+            }
+            
+            override var relationships: [PSJSONAPIProperty] {
+                return [self.relToOne, self.relToMany];
+            }
+            
+            required public init?(coder aDecoder: NSCoder) {
+                super.init(coder: aDecoder);
+                self.isLive = aDecoder.decodeBool(forKey: "isLive");
+    
+            }
+            
+            override init() {
+                super.init()
+            }
+            
+            required init?(json: JSON) {
+                super.init(json: json);
+            }
+            
+            override open func encode(with aCoder: NSCoder) {
+                super.encode(with: aCoder);
+                aCoder.encode(self.isLive, forKey: "isLive");
+            }
         }
         
         let modelArray: [PSCachedModel.Type] = [TestModel.self];
         cache.registerModels(models: modelArray);
         
         let newModel = TestModel();
-        newModel.name = "test";
+        newModel.name.set("test");
         newModel.isLive = false;
-        newModel.number = 10;
+        newModel.testProperty.set("hello");
         newModel.forTestingAddToCache(cache: cache);
-        
+        newModel.relToOne.id = "test";
+        newModel.relToMany.ids = ["test", "test2"];
         let data = NSKeyedArchiver.archivedData(withRootObject: newModel);
         UserDefaults.standard.setValue(data, forKey: "cacheTest");
         
         
         if let dataFromCache = UserDefaults.standard.object(forKey: "cacheTest") as? Data {
             if let objs = NSKeyedUnarchiver.unarchiveObject(with: dataFromCache) as? TestModel {
-                if objs.name == "test" && objs.isLive == false && objs.number == 10 {
+                if objs.name.get()! == "test" && objs.isLive == false && objs.testProperty.get()! == "hello" && objs.relToMany.ids == ["test", "test2"] && objs.relToOne.id == "test" {
                     XCTAssert(true);
                 } else {
                     XCTAssert(false);

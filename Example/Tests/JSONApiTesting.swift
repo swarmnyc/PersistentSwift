@@ -41,29 +41,29 @@ class JSONApiTesting: XCTestCase {
     }
     public class Articles: PSCachedModel {
         
-        typealias ArticleService = PSServiceMap<Articles, ArticlesTestData,ArticleSettings>
-        
+         
         override class var modelName: String {
             return "articles";
         }
-        open var title: String?
-        open var body: String?
         
         
-        var authorId: String?
+        open var title: PSAttribute<String> = PSAttribute(value: "", serialize: nil, jsonKey: "title", deserialize: nil);
+        open var body: PSAttribute<String> = PSAttribute(value: "", serialize: nil, jsonKey: "body", deserialize: nil);
         
-        override var attributes: [String: Any?] {
-            return [
-                "title": self.title,
-                "body": self.body
-            ];
+        
+        var author: PSToOne<Author> = PSToOne<Author>(value: nil, jsonKey: "author");
+        
+        
+        override var attributes: [PSJSONAPIProperty] {
+            return [self.title, self.body];
         }
         
-        override var relationships: [String: (ids: [String], type: PSCachedModel.Type)] {
-            return [
-                "author": (ids: [self.authorId!], type: Author.self)
-            ];
+        override var relationships: [PSJSONAPIProperty] {
+            return [self.author];
         }
+        
+        
+        
         
         override init() {
             super.init();
@@ -77,14 +77,7 @@ class JSONApiTesting: XCTestCase {
             super.init(json: json);
         }
         
-        override func setUpAttributes(json: JSON) {
-            self.title = json["title"].string;
-            self.body = json["body"].string;
-        }
-        
-        override func setUpRelationships(json: JSON) {
-            self.authorId = self.getRelationshipIds(fromKey: "author", fromJSON: json)![0];
-        }
+     
         
     }
     
@@ -143,8 +136,8 @@ class JSONApiTesting: XCTestCase {
         ArticlesNetworkManager.shared.getListOfObjects().then(execute: {
             articles -> Void in
             XCTAssertEqual(articles.count, 1)
-            XCTAssertEqual(articles[0].title, "JSON API paints my bikeshed!");
-            XCTAssertEqual(articles[0].body, "The shortest article. Ever.");
+            XCTAssertEqual(articles[0].title.get(), "JSON API paints my bikeshed!");
+            XCTAssertEqual(articles[0].body.get(), "The shortest article. Ever.");
             exp.fulfill();
         }).catch {
             error in
@@ -158,9 +151,9 @@ class JSONApiTesting: XCTestCase {
     func testCreatingPostParams() {
        
         let article = Articles();
-        article.title = "test title";
-        article.body = "test body";
-        article.authorId = "test id";
+        article.title.set("test title");
+        article.body.set("test body");
+        article.author.id = "test id";
         let params = article.getCreateParameters(fromModelName: Articles.modelName);
         
         let data = params!["data"]! as! [String: Any];
@@ -183,17 +176,18 @@ class JSONApiTesting: XCTestCase {
     
     func testCreatingPostMultiRelationshipParams() {
         class MultiAuthorPost: Articles {
-            override var relationships: [String: (ids: [String], type: PSCachedModel.Type)] {
-                return [
-                    "author": (ids: ["1", "2"], type: Author.self)
-                ];
+            var authors: PSToMany<Author> = PSToMany<Author>(value: nil, jsonKey: "authors");
+            
+            override var relationships: [PSJSONAPIProperty] {
+                return [self.authors];
             }
-
+            
         }
         
         let article = MultiAuthorPost();
-        article.title = "test title";
-        article.body = "test body";
+        article.title.set("test title");
+        article.body.set("test body");
+        article.authors.ids = ["1", "2"];
         let params = article.getCreateParameters(fromModelName: Articles.modelName);
         
         let data = params!["data"]! as! [String: Any];
@@ -205,7 +199,7 @@ class JSONApiTesting: XCTestCase {
         XCTAssertEqual(attributes["body"] as! String, "test body");
         
         let relationships = data["relationships"] as! [String: Any];
-        let author = relationships["author"] as! [String: Any];
+        let author = relationships["authors"] as! [String: Any];
         let authorData = author["data"] as! [[String: Any]];
         XCTAssertEqual(authorData[0]["id"] as! String, "1");
         XCTAssertEqual(authorData[1]["id"] as! String, "2");
@@ -217,17 +211,17 @@ class JSONApiTesting: XCTestCase {
         let exp = self.expectation(description: "will create an article");
        
         let article = Articles();
-        article.title = "test title";
-        article.body = "test body";
-        article.authorId = "test id";
+        article.title.set("test title");
+        article.body.set("test body");
+        article.author.id = "test id";
         
         
         
         ArticlesNetworkManager.shared.saveNewObject(obj: article).then(execute: {
             article -> Void in
-            XCTAssertEqual(article.authorId, "test id");
-            XCTAssertEqual(article.title, "test title");
-            XCTAssertEqual(article.body, "test body");
+            XCTAssertEqual(article.author.id, "test id");
+            XCTAssertEqual(article.title.get(), "test title");
+            XCTAssertEqual(article.body.get(), "test body");
             exp.fulfill();
         }).catch {
             error in
@@ -269,9 +263,9 @@ class JSONApiTesting: XCTestCase {
         let exp = self.expectation(description: "will delete an article");
         
         let article = Articles();
-        article.title = "test title";
-        article.body = "test body";
-        article.authorId = "test id";
+        article.title.set("test title");
+        article.body.set("test body");
+        article.author.id = "test id";
         ArticlesNetworkManager.shared.deleteObject(obj: article).then {
             exp.fulfill();
             }.catch {_ in 
