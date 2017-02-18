@@ -46,7 +46,7 @@ open class PSModelCache<T: PSCachedModel> {
     public init() {
         
     }
-
+    
     
     public func addCallbackOnCacheChange(_ callback: inout (PSDataEvent<T>) -> ()) {
         self.eventHandler.addBindee(&callback);
@@ -56,13 +56,13 @@ open class PSModelCache<T: PSCachedModel> {
         let array = Array(self.dictionaryCache.values);
         return array;
     }
-  
+    
     public func getModelsDictionaryFromCache() -> [String: T] {
         return self.dictionaryCache
     }
     
     
-
+    
     public func addModelToCache(model: T) {
         var alreadyInCache: Bool = self.isObjectInCache(model);
         self.appendObjectToCache(model);
@@ -91,7 +91,7 @@ open class PSModelCache<T: PSCachedModel> {
         return false;
     }
     
-
+    
     
     func appendObjectToCache(_ obj: T) {
         self.dictionaryCache[obj.id] = obj;
@@ -100,11 +100,11 @@ open class PSModelCache<T: PSCachedModel> {
     
     /// load everything in the cache
     public func loadCache() {
-            if let data = UserDefaults.standard.object(forKey: T.modelName) as? Data {
-                if let objs = NSKeyedUnarchiver.unarchiveObject(with: data) as? [String: T] {
-                    self.dictionaryCache = objs;
-                }
+        if let data = UserDefaults.standard.object(forKey: T.modelName) as? Data {
+            if let objs = NSKeyedUnarchiver.unarchiveObject(with: data) as? [String: T] {
+                self.dictionaryCache = objs;
             }
+        }
     }
     
     /// save everything in the cache
@@ -129,11 +129,11 @@ open class PSModelCache<T: PSCachedModel> {
 open class PSNetworkManager<T: PSJSONApiModel, TestingData: TestData, S: PSServiceSettings> {
     
     public typealias APIMap = PSServiceMap<T, TestingData, S>;
-  
+    
     lazy var service: PSService<T, TestingData, S> = {
         return PSService<T, TestingData, S>()
     }()
-   
+    
     public init() {
         
     }
@@ -153,7 +153,7 @@ open class PSNetworkManager<T: PSJSONApiModel, TestingData: TestData, S: PSServi
         let request = APIMap.deleteObject(obj: obj);
         return service.makeRequestNoObjectReturn(request);
     }
-
+    
     open func getObject(obj: T) -> Promise<T> {
         let request = APIMap.getObject(obj: obj);
         return service.makeRequest(request);
@@ -170,7 +170,7 @@ open class PSNetworkManager<T: PSJSONApiModel, TestingData: TestData, S: PSServi
         return service.makeRequestArray(request);
     }
     
-
+    
     open func getPaginatedList(page: Int, limit: Int, params: [String: Any]) -> Promise<[T]> {
         let request = APIMap.getListPaginated(page: page, limit: limit, params: params);
         return service.makeRequestArray(request);
@@ -295,39 +295,18 @@ public protocol PSJSONAPIWithGet: PSJSONAPIProperty {
     associatedtype ValueType
     
     var value: UnsafeMutablePointer<ValueType> { get set }
- 
-}
-
-
-extension PSJSONAPIWithGet {
-    
-    public func decode(_ aDecoder: NSCoder) {
-        if let value = aDecoder.decodeObject(forKey: self.jsonKey) as? ValueType {
-            self.value.pointee = value;
-        }
-    }
-  
-    
-    public func deserializeFromJSON(_ json: JSON) {
-        self.value.pointee = (json[self.jsonKey].rawValue as! ValueType);
-    }
-    
-   
-    
-    public func serializeToJSON() -> Any? {
-        return self.value.pointee
-    }
-    
     
 }
 
 
-public class PSAttribute<T>: PSJSONAPIWithGet {
 
+
+open class PSAttribute<T>: PSJSONAPIWithGet {
+    
     public typealias ValueType = T?
-
+    
     public var value: UnsafeMutablePointer<ValueType>
-
+    
     public var jsonKey: String = "";
     
     public init(property: inout T?, jsonKey: String) {
@@ -335,13 +314,32 @@ public class PSAttribute<T>: PSJSONAPIWithGet {
         self.value = UnsafeMutablePointer<T?>(&property);
         self.jsonKey = jsonKey;
     }
-
+    
+    
+    open func decode(_ aDecoder: NSCoder) {
+        if let value = aDecoder.decodeObject(forKey: self.jsonKey) as? ValueType {
+            self.value.pointee = value;
+        }
+    }
+    
+    
+    open func deserializeFromJSON(_ json: JSON) {
+        self.value.pointee = (json[self.jsonKey].rawValue as? T);
+    }
+    
+    
+    
+    open func serializeToJSON() -> Any? {
+        return self.value.pointee
+    }
+    
+    
 }
 
 
 public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
-   
-
+    
+    
     
     public typealias ValueType = T?
     
@@ -355,7 +353,7 @@ public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
         self.id = UnsafeMutablePointer<String?>(&idProperty);
         self.jsonKey = jsonKey;
     }
-   
+    
     
     
     
@@ -364,7 +362,7 @@ public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
             let json = JSON([self.jsonKey: value]);
             self.deserializeFromJSON(json);
         }
-
+        
     }
     
     
@@ -390,22 +388,22 @@ public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
 
 public class PSToMany<T: PSJSONApiModel>: PSJSONAPIWithGet {
     
-
+    
     public typealias ValueType = [T]?
     
     public var value: UnsafeMutablePointer<ValueType>
     public var ids: UnsafeMutablePointer<[String]?>
     public var jsonKey: String = "";
-
     
-   
+    
+    
     
     public init(property: inout [T]?, idProperty: inout [String]?, jsonKey: String) {
         self.value = UnsafeMutablePointer<[T]?>(&property);
         self.ids = UnsafeMutablePointer<[String]?>(&idProperty);
         self.jsonKey = jsonKey;
     }
- 
+    
     
     
     public func serializeToJSON() -> Any? {
@@ -467,9 +465,9 @@ open class PSJSONApiModel: NSCoder, PSCachedModel {
         assertionFailure("You did not override modelName in a PSJSONApiModel");
         return "";
     }
-
+    
     public var id: String = "";
-
+    
     
     var attributes: [PSJSONAPIProperty] = [];
     var relationships: [PSJSONAPIProperty] = [];
@@ -482,11 +480,16 @@ open class PSJSONApiModel: NSCoder, PSCachedModel {
     open func register(attributes: inout [PSJSONAPIProperty], andRelationships relationships: inout [PSJSONAPIProperty]) {
         assertionFailure("You did not override register(attribuets andRelationships) inside of an PSJSONApiModel");
     }
-
+    
     
     public required init?(json: JSON) {
         super.init();
         self.register(attributes: &self.attributes, andRelationships: &self.relationships);
+        
+        if let id = json["id"].string {
+            self.id = id;
+        }
+        
         let atts = json["attributes"]
         for attribute in self.attributes {
             attribute.deserializeFromJSON(atts);
@@ -548,11 +551,11 @@ open class PSJSONApiModel: NSCoder, PSCachedModel {
             aCoder.encode(relationship.serializeToJSON(), forKey: relationship.jsonKey);
         }
     }
-
+    
 }
 
 extension PSJSONApiModel {
- 
+    
     
     
     

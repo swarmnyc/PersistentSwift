@@ -10,9 +10,24 @@ import XCTest
 import PersistentSwift
 import SwiftyJSON
 import PromiseKit
+import CoreLocation
 
 class JSONApiTesting: XCTestCase {
-    
+    open class PSLocationAttribute: PSAttribute<CLLocationCoordinate2D> {
+        
+        open override func serializeToJSON() -> Any? {
+            return [self.value.pointee?.longitude, self.value.pointee?.latitude];
+        }
+        
+        open override func deserializeFromJSON(_ json: JSON) {
+            if let value = json[self.jsonKey].array {
+                self.value.pointee = CLLocationCoordinate2D(latitude: value[0].doubleValue, longitude: value[1].doubleValue);
+            }
+        }
+        
+        
+    }
+
     
     public struct ArticleSettings: PSServiceSettings {
         
@@ -67,11 +82,12 @@ class JSONApiTesting: XCTestCase {
         }
         var authorId: String?
         
+        var location: CLLocationCoordinate2D?
         
         override public func register(attributes: inout [PSJSONAPIProperty], andRelationships relationships: inout [PSJSONAPIProperty]) {
             attributes.append(PSAttribute<String>(property: &self.body, jsonKey: "body"));
             attributes.append(PSAttribute<String>(property: &self.title, jsonKey: "title"));
-            
+            attributes.append(PSLocationAttribute(property: &self.location, jsonKey: "location"))
             relationships.append(PSToOne<Author>(property: &self.author, idProperty: &self.authorId, jsonKey: "author"));
         }
 
