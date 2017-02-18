@@ -38,131 +38,79 @@ extension NSCoder {
 
 
 
-open class PSModelCache {
+open class PSModelCache<T: PSCachedModel> {
     
-    public static var shared: PSModelCache = PSModelCache();
-    public var models: [PSCachedModel.Type] = [];
-
-    
-    var dictionaryCache: [String: [String: PSCachedModel]] = [:];
-    
+    var eventHandler: DataBindType<PSDataEvent<T>> = DataBindType<PSDataEvent<T>>(value: .none);
+    var dictionaryCache: [String: T] = [:];
     
     public init() {
         
     }
+
+    
+    public func addCallbackOnCacheChange(_ callback: inout (PSDataEvent<T>) -> ()) {
+        self.eventHandler.addBindee(&callback);
+    }
+    
+    public func getModelsFromCache() -> [T] {
+        let array = Array(self.dictionaryCache.values);
+        return array;
+    }
+  
+    public func getModelsDictionaryFromCache() -> [String: T] {
+        return self.dictionaryCache
+    }
     
     
-    /// get models of type from the cache as an array
-    ///
-    /// - Parameter ofType: the type of object to get ex. SubclassCachedModel.self
-    /// - Returns: the array of models if they exist, otherwise nil
-    public func getModelsFromCache<T: PSCachedModel>(ofType: PSCachedModel.Type) -> [T]? {
-        if let cache = self.dictionaryCache[ofType.modelName] {
-            let array = Array(cache.values);
-            return array as! [T];
+
+    public func addModelToCache(model: T) {
+        var alreadyInCache: Bool = self.isObjectInCache(model);
+        self.appendObjectToCache(model);
+        let addedToCache = alreadyInCache == false;
+        
+        if addedToCache {
+            PSDataEvent.addData(model, eventHandler: &self.eventHandler);
+        } else {
+            PSDataEvent.updateData(model, eventHandler: &self.eventHandler);
         }
-        return nil;
     }
     
-    /// get models of a specific type from the cache as a dictionary [Id String: Obj]
-    ///
-    /// - Parameter ofType: the type of models you want ex SubclassCachedModel.self
-    /// - Returns: the dictionary of models if they exist, otherwise nil
-    public func getModelsDictionaryFromCache<T: PSCachedModel>(ofType: PSCachedModel.Type) -> [String: T]? {
-        return self.dictionaryCache[ofType.modelName] as? [String: T];
-    }
-    
-    
-    /// Register model types to the cache
-    ///
-    /// - Parameter models: the types to add to the cache, looks like [PSCachedModel.self, SubclassCachedModel.self]
-    public func registerModels(models: [PSCachedModel.Type]) {
+    public func addModelsToCache(models: [T]) {
         for model in models {
-            self.models.append(model);
+            self.addModelToCache(model: model);
         }
     }
     
     
     
-    /// add a model to the cache. It will find the proper cache based on the models type, append it and save the cache
-    ///
-    /// - Parameter model: the model to add
-    /// - Returns: true if model was added to the cache, false if it was already in it
-    public func addModelToCache(model: PSCachedModel) -> Bool {
-        let type: PSCachedModel.Type = type(of: model);
-        
-        var inside: Bool = false;
-        for model in self.models {
-            if model.modelName == type.modelName {
-                inside = true;
-            }
-        }
-        if inside == false {
-            assertionFailure("You did not register the model type \(type.modelName)");
-            return false;
-        }
-        
-        
-        
-        let name = type.modelName;
-        
-        self.createCacheIfNeeded(ofName: name);
-        var alreadyInCache: Bool = self.isObjectInCache(ofName: name, obj: model);
-        self.appendObjectToCache(ofName: name, obj: model);
-        
-        model.isInCache = true;
-        
-        return alreadyInCache == false;
-    }
     
-    
-    func isObjectInCache(ofName name: String, obj: PSCachedModel) -> Bool {
-        if (self.dictionaryCache[name]![obj.id] != nil) {
+    func isObjectInCache(_ obj: T) -> Bool {
+        if (self.dictionaryCache[obj.id] != nil) {
             return true;
         }
         return false;
     }
     
-    func createCacheIfNeeded(ofName name: String) {
-        if self.dictionaryCache[name] == nil {
-            self.dictionaryCache[name] = [:];
-        }
-    }
+
     
-    func appendObjectToCache(ofName name: String, obj: PSCachedModel) {
-        self.dictionaryCache[name]?[obj.id] = obj;
+    func appendObjectToCache(_ obj: T) {
+        self.dictionaryCache[obj.id] = obj;
         
     }
     
     /// load everything in the cache
     public func loadCache() {
-        for model in self.models {
-            if let data = UserDefaults.standard.object(forKey: model.modelName) as? Data {
-                if let objs = NSKeyedUnarchiver.unarchiveObject(with: data) as? [String: PSCachedModel] {
-                    self.dictionaryCache[model.modelName] = objs;
+            if let data = UserDefaults.standard.object(forKey: T.modelName) as? Data {
+                if let objs = NSKeyedUnarchiver.unarchiveObject(with: data) as? [String: T] {
+                    self.dictionaryCache = objs;
                 }
             }
-            
-        }
     }
     
     /// save everything in the cache
     public func saveCache() {
-        
-        
-        for model in self.models {
-            self.createCacheIfNeeded(ofName: model.modelName);
-            
-            //look into removing duplicate objects
-            //            let ar = $.uniq(self.cache[model.modelName]!, by: {
-            //                return $0.id;
-            //            });
-            
-            
-            let data = NSKeyedArchiver.archivedData(withRootObject: self.dictionaryCache[model.modelName]!);
-            UserDefaults.standard.setValue(data, forKeyPath: model.modelName);
-            
-        }
+        let data = NSKeyedArchiver.archivedData(withRootObject: self.dictionaryCache);
+        UserDefaults.standard.setValue(data, forKeyPath: T.modelName);
         UserDefaults.standard.synchronize();
     }
     
@@ -171,18 +119,14 @@ open class PSModelCache {
         self.dictionaryCache = [:];
     }
     
-    public func clearCache(ofType type: PSCachedModel.Type) {
-        self.dictionaryCache[type.modelName] = [:];
-    }
-    
-   
-    
     
 }
 
 
+
+
 //Generic Network Manager
-open class PSNetworkManager<T: PSCachedModel, TestingData: TestData, S: PSServiceSettings> {
+open class PSNetworkManager<T: PSJSONApiModel, TestingData: TestData, S: PSServiceSettings> {
     
     public typealias APIMap = PSServiceMap<T, TestingData, S>;
   
@@ -235,73 +179,6 @@ open class PSNetworkManager<T: PSCachedModel, TestingData: TestData, S: PSServic
     
 }
 
-open class PSDataManager<T: PSCachedModel> {
-    
-   
-    
-    open static func getModelsArray() -> [T] {
-        return T.models as! [T];
-    }
-    
-    open static func getModelsDictionary() -> [String: T] {
-        return T.modelsDictionary as! [String : T];
-    }
-    
-    open static func getModel(byId id: String) -> T? {
-        return T.getModel(byId: id) as? T
-    }
-    
-    open static func getModels<V: Equatable where T: AnyObject>(byValue value: Any, forKey key: String, ofType type: V.Type) -> [T] {
-        let allModels = T.models as! [T];
-        var foundModels: [T] = [];
-        for model in allModels {
-            if let v = model.value(forKey: key) {
-                if let equal = isEqual(type: type, a: v, b: value) {
-                    if equal {
-                        foundModels.append(model);
-                    }
-                }
-            }
-        }
-        return foundModels;
-        
-    }
-    
-    open static func removeModelFromCache(id: String) {
-        if let obj = PSModelCache.shared.dictionaryCache[T.modelName] as? PSCachedModel {
-            PSDataEvent.deleteData(obj, eventHandler: &T.eventHandler);
-        }
-        PSModelCache.shared.dictionaryCache[T.modelName]?.removeValue(forKey: id);
-    }
-    
-    
-    /// add a model to the cache
-    ///
-    /// - Returns: returns true if the model was added to the cache, false if it was already in the cache
-    open static func addData(obj: T) -> Bool {
-        if obj.isInCache == true {
-            return false;
-        }
-        
-        let addedToCache = PSModelCache.shared.addModelToCache(model: obj);
-        if addedToCache {
-            PSDataEvent.addData(obj, eventHandler: &T.eventHandler);
-        } else {
-            PSDataEvent.updateData(obj, eventHandler: &T.eventHandler);
-        }
-        
-        return addedToCache;
-    }
-    
-    
-    
-    static func isEqual<T: Equatable>(type: T.Type, a: Any, b: Any) -> Bool? {
-        guard let a = a as? T, let b = b as? T else { return nil }
-        
-        return a == b
-    }
-    
-}
 
 
 /// An Enum outlining different data events that can happen and exposing functions for hooking into and calling these events
@@ -401,43 +278,6 @@ public enum PSDataEvent<T: PSCachedModel> {
     
 }
 
-public protocol PSModelValueProtocol {
-    func setValueFromJSON(_ json: JSON)
-}
-
-
-
-
-open class PSModelValue<T: Any>: PSModelValueProtocol {
-    private var value: T?
-    private var path: String = "";
-    
-    public init(jsonPath path: String) {
-        self.path = path;
-    }
-    
-    public func get() -> T? {
-        return value;
-    }
-    
-    public func set(_ value: T) {
-        self.value = value;
-    }
-    
-    public func setValueFromJSON(_ json: JSON) {
-        let paths = self.path.components(separatedBy: ".");
-        var j = json;
-        for path in paths {
-            if let value = j[path].rawValue as? T {
-                self.value = value;
-            } else {
-                j = j[path];
-            }
-        }
-    }
-    
-    
-}
 
 
 
@@ -454,136 +294,69 @@ public protocol PSJSONAPIProperty: class {
 public protocol PSJSONAPIWithGet: PSJSONAPIProperty {
     associatedtype ValueType
     
-    var value: ValueType? { get set }
-    
-    var deserialize: ((Any) -> ValueType?)? { get set }
-    var serialize: ((ValueType) -> Any)?{ get set }
-    
-    
-    func get() -> ValueType?
-    func set(_ value: ValueType?)
+    var value: UnsafeMutablePointer<ValueType> { get set }
+ 
 }
 
 
 extension PSJSONAPIWithGet {
-    public func get() -> ValueType? {
-        return self.value;
-    }
-    
-    public func set(_ value: ValueType?) {
-        self.value = value;
-    }
     
     public func decode(_ aDecoder: NSCoder) {
         if let value = aDecoder.decodeObject(forKey: self.jsonKey) as? ValueType {
-            self.set(value);
+            self.value.pointee = value;
         }
     }
+  
+    
+    public func deserializeFromJSON(_ json: JSON) {
+        self.value.pointee = (json[self.jsonKey].rawValue as! ValueType);
+    }
+    
+   
+    
+    public func serializeToJSON() -> Any? {
+        return self.value.pointee
+    }
+    
     
 }
+
 
 public class PSAttribute<T>: PSJSONAPIWithGet {
-    public var value: T?
 
-    public var deserialize: ((Any) -> T?)?
-    public var serialize: ((T) -> Any)?
-    
+    public typealias ValueType = T?
+
+    public var value: UnsafeMutablePointer<ValueType>
+
     public var jsonKey: String = "";
     
-    public init(value: T, serialize: ((_ value: T) -> Any)?, jsonKey: String?, deserialize: ((Any) -> T?)?) {
-        self.value = value;
-        if let jsonKey = jsonKey {
-            self.jsonKey = jsonKey;
-        }
-        self.deserialize = deserialize;
-        self.serialize = serialize;
-    }
-    
-    public required init() {
+    public init(property: inout T?, jsonKey: String) {
         
-    }
-    
-    public func serializeToJSON() -> Any? {
-        if let v = self.value {
-            if let serialize = self.serialize {
-                return serialize(v);
-            } else {
-                return v;
-            }
-        }
-        return nil;
-    }
-    
-    public func deserializeFromJSON(_ json: JSON) {
-        let paths = self.jsonKey.components(separatedBy: ".");
-        var j = json;
-        for path in paths {
-            if let value = j[path].rawValue as? ValueType {
-                self.value = value;
-            } else {
-                j = j[path];
-            }
-        }
-        if let deserialize = self.deserialize {
-            if let value = deserialize(j.rawValue) {
-                self.value = value;
-            }
-        }
-    }
-    
-    public func decode(_ aDecoder: NSCoder) {
-        if let value = aDecoder.decodeObject(forKey: self.jsonKey) as? ValueType {
-            self.set(value);
-        }
+        self.value = UnsafeMutablePointer<T?>(&property);
+        self.jsonKey = jsonKey;
     }
 
 }
 
 
-public class PSToOne<T: PSCachedModel>: PSJSONAPIWithGet {
+public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
+   
+
     
-    public var value: T?
-     public var jsonKey: String = "";
+    public typealias ValueType = T?
     
-    public var deserialize: ((Any) -> T?)?
-    public var serialize: ((T) -> Any)?
+    public var value: UnsafeMutablePointer<ValueType>
+    public var id: UnsafeMutablePointer<String?>
+    public var jsonKey: String = "";
     
     
-    public var id: String = "";
-    
-    convenience public init(value: T?, jsonKey: String) {
-        self.init();
-        self.value = value;
+    public init(property: inout T?, idProperty: inout String?, jsonKey: String) {
+        self.value = UnsafeMutablePointer<ValueType>(&property);
+        self.id = UnsafeMutablePointer<String?>(&idProperty);
         self.jsonKey = jsonKey;
     }
+   
     
-    
-    public func set(_ value: T?) {
-        self.value = value;
-        if value == nil {
-            self.id = "";
-        } else {
-            if let v = value {
-                self.id = v.id;
-            }
-        }
-    }
-    
-    
-    public func serializeToJSON() -> Any? {
-        var topLevel: [String: Any] = [:];
-        var data: [String: Any] = [:];
-        data["type"] = T.modelName;
-        data["id"] = self.id;
-        topLevel["data"] = data;
-        return topLevel;
-    }
-    
-    public func deserializeFromJSON(_ json: JSON) {
-        if let id = json[jsonKey]["data"]["id"].string {
-            self.id = id;
-        }
-    }
     
     
     public func decode(_ aDecoder: NSCoder) {
@@ -594,38 +367,63 @@ public class PSToOne<T: PSCachedModel>: PSJSONAPIWithGet {
 
     }
     
+    
+    
+    
+    public func serializeToJSON() -> Any? {
+        var topLevel: [String: Any] = [:];
+        var data: [String: Any] = [:];
+        data["type"] = T.modelName;
+        data["id"] = self.id.pointee;
+        topLevel["data"] = data;
+        return topLevel;
+    }
+    
+    public func deserializeFromJSON(_ json: JSON) {
+        if let id = json[jsonKey]["data"]["id"].string {
+            self.id.pointee = id;
+        }
+    }
+    
+    
 }
 
-public class PSToMany<T: PSCachedModel>: PSJSONAPIWithGet {
-   
+public class PSToMany<T: PSJSONApiModel>: PSJSONAPIWithGet {
+    
 
+    public typealias ValueType = [T]?
+    
+    public var value: UnsafeMutablePointer<ValueType>
+    public var ids: UnsafeMutablePointer<[String]?>
     public var jsonKey: String = "";
+
     
-    public var value: [T]?
-    public var ids: [String] = [];
+   
     
-    public var deserialize: ((Any) -> [T]?)?
-    public var serialize: (([T]) -> Any)?
-    
-    convenience public init(value: [T]?, jsonKey: String) {
-        self.init();
-        self.value = value;
+    public init(property: inout [T]?, idProperty: inout [String]?, jsonKey: String) {
+        self.value = UnsafeMutablePointer<[T]?>(&property);
+        self.ids = UnsafeMutablePointer<[String]?>(&idProperty);
         self.jsonKey = jsonKey;
     }
  
     
+    
     public func serializeToJSON() -> Any? {
         var topLevel: [String: Any] = [:];
         var data: [[String: Any]] = [];
-        for id in self.ids {
-            var d: [String: Any] = [:];
-            d["type"] = T.modelName;
-            d["id"] = id;
-            data.append(d);
+        if let ids = self.ids.pointee {
+            for id in ids {
+                var d: [String: Any] = [:];
+                d["type"] = T.modelName;
+                d["id"] = id;
+                data.append(d);
+            }
         }
+        
         topLevel["data"] = data;
         return topLevel
     }
+    
     
     
     public func deserializeFromJSON(_ json: JSON) {
@@ -636,25 +434,10 @@ public class PSToMany<T: PSCachedModel>: PSJSONAPIWithGet {
                     ids.append(i);
                 }
             }
-            self.ids = ids;
+            self.ids.pointee = ids;
         }
     }
     
-    
-    public func addObject(_ obj: T) {
-        self.ids.append(obj.id);
-        self.value?.append(obj);
-    }
-    
-    public func set(_ value: Array<T>?) {
-        self.value = value;
-        if let values = self.value {
-            self.ids = [];
-            for value in values {
-                self.ids.append(value.id);
-            }
-        }
-    }
     
     public func decode(_ aDecoder: NSCoder) {
         if let value = aDecoder.decodeObject(forKey: self.jsonKey) as? [String: Any] {
@@ -665,98 +448,68 @@ public class PSToMany<T: PSCachedModel>: PSJSONAPIWithGet {
     
 }
 
-
-
-
-
-
-
-
-/// Base cached model
-@objc open class PSCachedModel: NSObject, NSCoding {
+public protocol PSCachedModel {
+    static var modelName: String { get }
     
-    static var eventHandler: DataBindType<PSDataEvent<PSCachedModel>> = DataBindType<PSDataEvent<PSCachedModel>>(value: .none);
+    var id: String { get set }
     
-    open static func addCallbackOnCacheChange(_ callback: inout (PSDataEvent<PSCachedModel>) -> ()) {
-        self.eventHandler.addBindee(&callback);
-    }
+    init(coder aDecoder: NSCoder)
+    
+    func encode(with aCoder: NSCoder)
+}
+
+
+
+open class PSJSONApiModel: NSCoder, PSCachedModel {
     
     
-    /// The name of the model (used in the model cache)
     open class var modelName: String {
-        get {
-            assertionFailure("did not override model name in a cached model type");
-            return "Cached Model"
-        }
+        assertionFailure("You did not override modelName in a PSJSONApiModel");
+        return "";
     }
-    
-    
-    
-    /// helper property, it gets all of the cached models of this type from the model cache
-    open class var models: [PSCachedModel] {
-        get {
-            if let models = PSModelCache.shared.getModelsFromCache(ofType: self) {
-                return models;
-            }
-            return [];
-        }
-    }
-    
-    open class var modelsDictionary: [String: PSCachedModel] {
-        get {
-            if let models = PSModelCache.shared.getModelsDictionaryFromCache(ofType: self) {
-                return models;
-            }
-            return [:];
-        }
-    }
-    
-    
-    open class func getModel(byId id: String) -> PSCachedModel? {
-        if let models = PSModelCache.shared.getModelsDictionaryFromCache(ofType: self) {
-            if let model = models[id] {
-                return model;
-            }
-        }
-        return nil;
-    }
-    
-    
-    //I am assuming every model has an id (this property is not used in the internals of the cache, you can set it to whatever is in your db)
+
     public var id: String = "";
+
     
-    public var isInCache: Bool = false;
+    var attributes: [PSJSONAPIProperty] = [];
+    var relationships: [PSJSONAPIProperty] = [];
     
-    
-    open var attributes: [PSJSONAPIProperty] {
-        assertionFailure("You did not override attributes in PSCachedModel");
-        return [];
-    };
-    
-    
-    open var relationships: [PSJSONAPIProperty] {
-        assertionFailure("You did not override toOneRelationships in PSCachedModel");
-        return [];
-    }
- 
- 
-    
-    required public init?(json: JSON) {
+    override public init() {
         super.init();
-        if let id = json["id"].string {
-            self.id = id;
+        self.register(attributes: &self.attributes, andRelationships: &self.relationships);
+    }
+    
+    open func register(attributes: inout [PSJSONAPIProperty], andRelationships relationships: inout [PSJSONAPIProperty]) {
+        assertionFailure("You did not override register(attribuets andRelationships) inside of an PSJSONApiModel");
+    }
+
+    
+    public required init?(json: JSON) {
+        super.init();
+        self.register(attributes: &self.attributes, andRelationships: &self.relationships);
+        let atts = json["attributes"]
+        for attribute in self.attributes {
+            attribute.deserializeFromJSON(atts);
         }
-        let a = json["attributes"];
-        for atts in self.attributes {
-            atts.deserializeFromJSON(a);
+        let rel = json["relationships"];
+        for relationship in self.relationships {
+            relationship.deserializeFromJSON(rel);
         }
-        let relationships = json["relationships"];
-        for rel in self.relationships {
-            rel.deserializeFromJSON(relationships);
+        
+    }
+    
+    public required init(coder aDecoder: NSCoder) {
+        super.init();
+        for attribute in self.attributes {
+            attribute.decode(aDecoder)
+        }
+        for relationship in self.relationships {
+            relationship.decode(aDecoder);
         }
     }
     
-    public func getCreateParameters(fromModelName type: String) -> [String: Any]? {
+    
+    open func getCreateParameters(fromModelName type: String) -> [String: Any]? {
         var params: [String: Any] = [:];
         
         var data: [String: Any] = [:];
@@ -764,9 +517,9 @@ public class PSToMany<T: PSCachedModel>: PSJSONAPIWithGet {
         
         var attributes: [String: Any] = [:];
         for att in self.attributes {
-                if let j = att.serializeToJSON() {
-                    attributes[att.jsonKey] = j;
-                }
+            if let j = att.serializeToJSON() {
+                attributes[att.jsonKey] = j;
+            }
         }
         
         var relationships: [String: Any] = [:];
@@ -795,54 +548,14 @@ public class PSToMany<T: PSCachedModel>: PSJSONAPIWithGet {
             aCoder.encode(relationship.serializeToJSON(), forKey: relationship.jsonKey);
         }
     }
-    
-    
-    
-    
-    public override init() {
-        super.init();
-    }
-    
-      
-    
-    //FOR TESTING PURPOSES ONLY
-    public func forTestingAddToCache(cache: PSModelCache) -> Bool {
-        if self.isInCache == true {
-            return false;
-        }
-        
-        let addedToCache = cache.addModelToCache(model: self);
-        if addedToCache {
-            PSDataEvent.addData(self, eventHandler: &type(of: self).eventHandler);
-        } else {
-            PSDataEvent.updateData(self, eventHandler: &type(of: self).eventHandler);
-        }
-        
-        return addedToCache;
-    }
-    
-    /// add a model to the cache
-    ///
-    /// - Returns: returns true if the model was added to the cache, false if it was already in the cache
-    @available(*, deprecated, message: "Data events not firing properly in all situations")
-    public func addToCache() -> Bool {
-        return self.forTestingAddToCache(cache: PSModelCache.shared);
-        
-    }
-    
-    
-    required public init?(coder aDecoder: NSCoder) {
-        super.init();
-        
-        for attribute in self.attributes {
-            attribute.decode(aDecoder)
-        }
-        for relationship in self.relationships {
-            relationship.decode(aDecoder);
-        }
-    }
-    
+
+}
+
+extension PSJSONApiModel {
+ 
     
     
     
 }
+
+

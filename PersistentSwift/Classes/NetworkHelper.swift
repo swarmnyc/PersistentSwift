@@ -18,7 +18,7 @@ extension Response {
 
 	/// Maps data received from the signal into an object which implements the ALSwiftyJSONAble protocol.
 	/// If the conversion fails, the signal errors.
-	public func map<T:PSCachedModel>(to type: T.Type) throws -> T {
+	public func map<T:PSJSONApiModel>(to type: T.Type) throws -> T {
 		let jsonObject = try mapJSON()
 
 		guard let mappedObject = T(json: JSON(jsonObject)["data"]) else {
@@ -30,7 +30,7 @@ extension Response {
 
 	/// Maps data received from the signal into an array of objects which implement the ALSwiftyJSONAble protocol
 	/// If the conversion fails, the signal errors.
-	public func map<T:PSCachedModel>(to type: [T.Type]) throws -> [T] {
+	public func map<T:PSJSONApiModel>(to type: [T.Type]) throws -> [T] {
 		let jsonObject = try mapJSON()
 
 		let mappedArray = JSON(jsonObject)["data"];
@@ -44,7 +44,7 @@ extension Response {
 }
 
 
-struct AuthPlugin<T:PSCachedModel, D:TestData, S: PSServiceSettings>: PluginType {
+struct AuthPlugin<T:PSJSONApiModel, D:TestData, S: PSServiceSettings>: PluginType {
 	let tokenClosure: ((PSServiceMap<T,D,S>) -> String?)
 
 	func prepare(_ request: URLRequest, target: TargetType) -> URLRequest {

@@ -27,7 +27,7 @@ class DefaultAlamofireManager: Alamofire.SessionManager {
 }
 
 
-public struct TimeoutPlugin<T:PSCachedModel, D:TestData, S: PSServiceSettings>: PluginType {
+public struct TimeoutPlugin<T:PSJSONApiModel, D:TestData, S: PSServiceSettings>: PluginType {
     
     var timeoutGetter: ((PSServiceMap<T,D,S>) -> Double)?
     
@@ -54,8 +54,8 @@ public protocol PSServiceSettings {
     static var baseUrl: String { get }
     static var isTesting: Bool { get }
     
-    static func getTimeout<Model: PSCachedModel, TestD: TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> Double
-    static func getAuthToken<Model: PSCachedModel, TestD: TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> String?
+    static func getTimeout<Model: PSJSONApiModel, TestD: TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> Double
+    static func getAuthToken<Model: PSJSONApiModel, TestD: TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> String?
     
 }
 
@@ -69,11 +69,11 @@ struct TestSettings: PSServiceSettings {
         return false;
     }
     
-    static func getTimeout<Model : PSCachedModel, TestD : TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> Double {
+    static func getTimeout<Model : PSJSONApiModel, TestD : TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> Double {
         return 12;
     }
     
-    static func getAuthToken<Model : PSCachedModel, TestD : TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> String? {
+    static func getAuthToken<Model : PSJSONApiModel, TestD : TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> String? {
         return nil;
     }
     
@@ -88,7 +88,7 @@ struct TestSettings: PSServiceSettings {
 
 //A Generic class for making network requests (to be subclassed for each section of the API eg. AvatarService, EventService, UserService etc
 
-public class PSService<T:PSCachedModel, D: TestData, S: PSServiceSettings> {
+public class PSService<T:PSJSONApiModel, D: TestData, S: PSServiceSettings> {
     
 	var baseUrl: String = "";
     
@@ -223,7 +223,7 @@ public class PSService<T:PSCachedModel, D: TestData, S: PSServiceSettings> {
 
 }
 
-public enum PSServiceMap<T: PSCachedModel, D: TestData, S: PSServiceSettings> {
+public enum PSServiceMap<T: PSJSONApiModel, D: TestData, S: PSServiceSettings> {
     case getList
     case getListWith(params: [String: Any])
     case getListPaginated(page: Int, limit: Int, params: [String: Any]);

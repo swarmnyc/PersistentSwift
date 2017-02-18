@@ -24,60 +24,59 @@ class JSONApiTesting: XCTestCase {
             return "http://google.com/"
         }
         
-        static func getTimeout<Model : PSCachedModel, TestD : TestData, S : PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> Double {
+        static func getTimeout<Model : PSJSONApiModel, TestD : TestData, S : PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> Double {
             return 12;
         }
         
-        static func getAuthToken<Model : PSCachedModel, TestD : TestData, S : PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> String? {
+        static func getAuthToken<Model : PSJSONApiModel, TestD : TestData, S : PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> String? {
             return nil;
         }
     }
     
     
-    class Author: PSCachedModel {
+    final class Author: PSJSONApiModel {
+        
         override class var modelName: String {
             return "authors";
         }
-    }
-    public class Articles: PSCachedModel {
         
-         
+        
+        
+        override func register(attributes: inout [PSJSONAPIProperty], andRelationships relationships: inout [PSJSONAPIProperty]) {
+            
+        }
+        
+        
+    }
+    public class Articles: PSJSONApiModel {
+        
         override class var modelName: String {
             return "articles";
         }
         
-        
-        open var title: PSAttribute<String> = PSAttribute(value: "", serialize: nil, jsonKey: "title", deserialize: nil);
-        open var body: PSAttribute<String> = PSAttribute(value: "", serialize: nil, jsonKey: "body", deserialize: nil);
-        
-        
-        var author: PSToOne<Author> = PSToOne<Author>(value: nil, jsonKey: "author");
-        
-        
-        override var attributes: [PSJSONAPIProperty] {
-            return [self.title, self.body];
+        open var title: String? = "test";
+        open var body: String? = "body";
+        var author: Author? {
+            didSet {
+                if let author = self.author {
+                    self.authorId = author.id;
+                    return;
+                }
+                self.authorId = nil;
+            }
         }
+        var authorId: String?
         
-        override var relationships: [PSJSONAPIProperty] {
-            return [self.author];
+        
+        override public func register(attributes: inout [PSJSONAPIProperty], andRelationships relationships: inout [PSJSONAPIProperty]) {
+            attributes.append(PSAttribute<String>(property: &self.body, jsonKey: "body"));
+            attributes.append(PSAttribute<String>(property: &self.title, jsonKey: "title"));
+            
+            relationships.append(PSToOne<Author>(property: &self.author, idProperty: &self.authorId, jsonKey: "author"));
         }
+
         
         
-        
-        
-        override init() {
-            super.init();
-        }
-        
-        required public init?(coder aDecoder: NSCoder) {
-            super.init(coder: aDecoder);
-        }
-        
-        required public init?(json: JSON) {
-            super.init(json: json);
-        }
-        
-     
         
     }
     
@@ -136,8 +135,8 @@ class JSONApiTesting: XCTestCase {
         ArticlesNetworkManager.shared.getListOfObjects().then(execute: {
             articles -> Void in
             XCTAssertEqual(articles.count, 1)
-            XCTAssertEqual(articles[0].title.get(), "JSON API paints my bikeshed!");
-            XCTAssertEqual(articles[0].body.get(), "The shortest article. Ever.");
+            XCTAssertEqual(articles[0].title, "JSON API paints my bikeshed!");
+            XCTAssertEqual(articles[0].body, "The shortest article. Ever.");
             exp.fulfill();
         }).catch {
             error in
@@ -151,9 +150,11 @@ class JSONApiTesting: XCTestCase {
     func testCreatingPostParams() {
        
         let article = Articles();
-        article.title.set("test title");
-        article.body.set("test body");
-        article.author.id = "test id";
+        article.title = "test title";
+        article.body = "test body";
+        let a = Author();
+        a.id = "test id";
+        article.author = a;
         let params = article.getCreateParameters(fromModelName: Articles.modelName);
         
         let data = params!["data"]! as! [String: Any];
@@ -176,18 +177,39 @@ class JSONApiTesting: XCTestCase {
     
     func testCreatingPostMultiRelationshipParams() {
         class MultiAuthorPost: Articles {
-            var authors: PSToMany<Author> = PSToMany<Author>(value: nil, jsonKey: "authors");
+            var authors: [Author]? = [] {
+                didSet {
+                    if let authors = self.authors {
+                        var ids: [String] = [];
+                        for author in authors {
+                            ids.append(author.id);
+                        }
+                        self.authorsIds = ids;
+                        return;
+                    }
+                    self.authorsIds = nil;
+                }
+            };
+            var authorsIds: [String]?
             
-            override var relationships: [PSJSONAPIProperty] {
-                return [self.authors];
+            
+            override public func register(attributes: inout [PSJSONAPIProperty], andRelationships relationships: inout [PSJSONAPIProperty]) {
+                super.register(attributes: &attributes, andRelationships: &relationships);
+                relationships.append(PSToMany<Author>(property: &self.authors, idProperty: &self.authorsIds, jsonKey: "authors"));
+
             }
+
             
         }
         
         let article = MultiAuthorPost();
-        article.title.set("test title");
-        article.body.set("test body");
-        article.authors.ids = ["1", "2"];
+        article.title = "test title";
+        article.body = "test body";
+        var a1 = Author()
+        a1.id = "1";
+        var a2 = Author();
+        a2.id = "2";
+        article.authors = [a1, a2];
         let params = article.getCreateParameters(fromModelName: Articles.modelName);
         
         let data = params!["data"]! as! [String: Any];
@@ -211,17 +233,18 @@ class JSONApiTesting: XCTestCase {
         let exp = self.expectation(description: "will create an article");
        
         let article = Articles();
-        article.title.set("test title");
-        article.body.set("test body");
-        article.author.id = "test id";
-        
+        article.title = "test title";
+        article.body = "test body";
+        var author = Author();
+        author.id = "test id";
+        article.author = author;
         
         
         ArticlesNetworkManager.shared.saveNewObject(obj: article).then(execute: {
             article -> Void in
-            XCTAssertEqual(article.author.id, "test id");
-            XCTAssertEqual(article.title.get(), "test title");
-            XCTAssertEqual(article.body.get(), "test body");
+            XCTAssertEqual(article.authorId, "test id");
+            XCTAssertEqual(article.title, "test title");
+            XCTAssertEqual(article.body, "test body");
             exp.fulfill();
         }).catch {
             error in
@@ -263,9 +286,11 @@ class JSONApiTesting: XCTestCase {
         let exp = self.expectation(description: "will delete an article");
         
         let article = Articles();
-        article.title.set("test title");
-        article.body.set("test body");
-        article.author.id = "test id";
+        article.title = "test title";
+        article.body = "test body";
+        let author = Author();
+        author.id = "test id";
+        
         ArticlesNetworkManager.shared.deleteObject(obj: article).then {
             exp.fulfill();
             }.catch {_ in 
