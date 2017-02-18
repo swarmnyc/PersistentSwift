@@ -61,6 +61,10 @@ open class PSModelCache<T: PSCachedModel> {
         return self.dictionaryCache
     }
     
+    public func getModelFromCache(byId id: String) -> T? {
+        return self.dictionaryCache[id];
+    }
+    
     
     
     public func addModelToCache(model: T) {
@@ -450,15 +454,12 @@ public protocol PSCachedModel {
     static var modelName: String { get }
     
     var id: String { get set }
-    
-    init(coder aDecoder: NSCoder)
-    
-    func encode(with aCoder: NSCoder)
+        
 }
 
 
 
-open class PSJSONApiModel: NSCoder, PSCachedModel {
+open class PSJSONApiModel: NSObject, NSCoding, PSCachedModel {
     
     
     open class var modelName: String {
@@ -482,8 +483,8 @@ open class PSJSONApiModel: NSCoder, PSCachedModel {
     }
     
     
-    public required init?(json: JSON) {
-        super.init();
+    public required convenience init?(json: JSON) {
+        self.init();
         self.register(attributes: &self.attributes, andRelationships: &self.relationships);
         
         if let id = json["id"].string {
@@ -501,8 +502,11 @@ open class PSJSONApiModel: NSCoder, PSCachedModel {
         
     }
     
-    public required init(coder aDecoder: NSCoder) {
-        super.init();
+    public required convenience init(coder aDecoder: NSCoder) {
+        self.init();
+        if let id = aDecoder.decodeObject(forKey: "id") as? String {
+            self.id = id;
+        }
         for attribute in self.attributes {
             attribute.decode(aDecoder)
         }
@@ -542,8 +546,8 @@ open class PSJSONApiModel: NSCoder, PSCachedModel {
         
     }
     
-    
     open func encode(with aCoder: NSCoder) {
+        aCoder.encode(self.id as? Any, forKey: "id");
         for attribute in self.attributes {
             aCoder.encode(attribute.serializeToJSON(), forKey: attribute.jsonKey);
         }
@@ -551,6 +555,7 @@ open class PSJSONApiModel: NSCoder, PSCachedModel {
             aCoder.encode(relationship.serializeToJSON(), forKey: relationship.jsonKey);
         }
     }
+    
     
 }
 
