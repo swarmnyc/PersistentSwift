@@ -121,24 +121,26 @@ public class PSService<T:PSJSONApiModel, D: TestData, S: PSServiceSettings> {
 	//a wrapper for a request which returns a single object, type is the type of request, defined in the API map
 	public func makeRequest(_ type: PSServiceMap<T, D, S>) -> Promise<T> {
 		let promise = Promise<T>.pending();
-		Background.runInBackground {
 			self.provider.request(type, completion: {
 				result in
 				switch result {
 					case let .success(moyaResponse):
-						do {
-							let object = try moyaResponse.map(to: T.self);
-							Background.runInMainThread {
-								promise.fulfill(object);
-							}
-						}
-						catch {
-							print(error);
-							print(type);
-							Background.runInMainThread {
-								promise.reject(error);
-							}
-						}
+                        Background.runInBackground {
+                            
+                            do {
+                                let object = try moyaResponse.map(to: T.self);
+                                Background.runInMainThread {
+                                    promise.fulfill(object);
+                                }
+                            }
+                            catch {
+                                print(error);
+                                print(type);
+                                Background.runInMainThread {
+                                    promise.reject(error);
+                                }
+                            }
+                        }
 						break;
 					case let .failure(error):
 						Background.runInMainThread {
@@ -147,7 +149,6 @@ public class PSService<T:PSJSONApiModel, D: TestData, S: PSServiceSettings> {
 						break;
 				}
 			});
-		}
 		return promise.promise;
 	}
 
@@ -193,18 +194,20 @@ public class PSService<T:PSJSONApiModel, D: TestData, S: PSServiceSettings> {
 				result in
 				switch result {
 					case let .success(moyaResponse):
-						do {
-							let objects = try moyaResponse.map(to: [T.self]) as! [T];
-							Background.runInMainThread {
-								promise.fulfill(objects);
-							}
-						}
-						catch {
-							print(error);
-							Background.runInMainThread {
-								promise.reject(error);
-							}
-						}
+                        Background.runInBackground {
+                            do {
+                                let objects = try moyaResponse.map(to: [T.self]) as! [T];
+                                Background.runInMainThread {
+                                    promise.fulfill(objects);
+                                }
+                            }
+                            catch {
+                                print(error);
+                                Background.runInMainThread {
+                                    promise.reject(error);
+                                }
+                            }
+                        }
 						break;
 					case let .failure(error):
 						Background.runInMainThread {
