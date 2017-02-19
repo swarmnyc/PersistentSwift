@@ -113,9 +113,11 @@ open class PSModelCache<T: PSCachedModel> {
     
     /// save everything in the cache
     public func saveCache() {
-        let data = NSKeyedArchiver.archivedData(withRootObject: self.dictionaryCache);
-        UserDefaults.standard.setValue(data, forKeyPath: T.modelName);
-        UserDefaults.standard.synchronize();
+        Background.runInBackground {
+            let data = NSKeyedArchiver.archivedData(withRootObject: self.dictionaryCache);
+            UserDefaults.standard.setValue(data, forKeyPath: T.modelName);
+            UserDefaults.standard.synchronize();
+        }
     }
     
     
