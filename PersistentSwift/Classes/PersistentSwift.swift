@@ -486,7 +486,6 @@ open class PSJSONApiModel: NSObject, NSCoding, PSCachedModel {
     
     public required convenience init?(json: JSON) {
         self.init();
-        self.register(attributes: &self.attributes, andRelationships: &self.relationships);
         
         if let id = json["id"].string {
             self.id = id;
