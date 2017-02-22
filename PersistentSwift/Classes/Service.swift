@@ -128,6 +128,7 @@ public class PSService<T:PSJSONApiModel, D: TestData, S: PSServiceSettings> {
                         Background.runInBackground {
                             
                             do {
+				try moyaResponse.filterSuccessfulStatusAndRedirectCodes();
                                 let object = try moyaResponse.map(to: T.self);
                                 Background.runInMainThread {
                                     promise.fulfill(object);
@@ -196,6 +197,7 @@ public class PSService<T:PSJSONApiModel, D: TestData, S: PSServiceSettings> {
 					case let .success(moyaResponse):
                         Background.runInBackground {
                             do {
+				try moyaResponse.filterSuccessfulStatusAndRedirectCodes();    
                                 let objects = try moyaResponse.map(to: [T.self]) as! [T];
                                 Background.runInMainThread {
                                     promise.fulfill(objects);
