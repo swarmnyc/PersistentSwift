@@ -79,6 +79,14 @@ open class PSModelCache<T: PSCachedModel> {
         }
     }
     
+    public func removeModelFromCache(ofId id: String) {
+        if let model = self.dictionaryCache[id] {
+            PSDataEvent.deleteData(model, eventHandler: &self.eventHandler);
+            self.dictionaryCache.removeValue(forKey: id);
+        }
+    }
+    
+    
     public func addModelsToCache(models: [T]) {
         for model in models {
             self.addModelToCache(model: model);

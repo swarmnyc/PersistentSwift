@@ -211,4 +211,18 @@ class Tests: XCTestCase {
         
     }
     
+    func testRemoveFromCache() {
+        let model = TestModel();
+        model.id = "1";
+        model.isLive = true;
+        model.name = "hello";
+        
+        cache.addModelToCache(model: model);
+        
+        cache.saveCache();
+        
+        cache.removeModelFromCache(ofId: "1");
+        XCTAssertEqual(cache.getModelsFromCache().count, 0);
+    }
+    
 }
