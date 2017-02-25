@@ -1,5 +1,6 @@
 # PersistentSwift
 A model cache and JSON API client for swift
+[![Build Status](https://travis-ci.org/swarmnyc/PersistentSwift.svg?branch=master)](https://travis-ci.org/swarmnyc/PersistentSwift)
 ## Requirements
 -Swift 3
 ## Installation
