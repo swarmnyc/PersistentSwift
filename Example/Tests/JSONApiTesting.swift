@@ -40,7 +40,14 @@ class JSONApiTesting: XCTestCase {
         }
         
         static func getTimeout<Model : PSJSONApiModel, TestD : TestData, S : PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> Double {
-            return 12;
+            switch target {
+            case .createObject( _):
+                return 4;
+            case .getListPaginated( _):
+                return 5;
+            default:
+                return 12;
+            }
         }
         
         static func getAuthToken<Model : PSJSONApiModel, TestD : TestData, S : PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> String? {
