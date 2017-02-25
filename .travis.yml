@@ -13,4 +13,4 @@ before_install:
 - pod repo update
 - pod install --project-directory=Example
 script:
-- xctool -workspace Example/PersistentSwift -scheme PersistentSwift-Example run-tests -only PersistentSwift_Tests
+- xctool -workspace Example/PersistentSwift.xcworkspace -scheme PersistentSwift-Example run-tests -only PersistentSwift_Tests
