@@ -190,7 +190,7 @@ class Tests: XCTestCase {
     
     
     func testCache() {
-        
+        let exp = self.expectation(description: "loading cache works");
         let model = TestModel();
         model.id = "1";
         model.isLive = true;
@@ -199,15 +199,18 @@ class Tests: XCTestCase {
         cache.addModelToCache(model: model);
         
         cache.saveCache();
-        
-        cache.clearCache();
-        cache.loadCache();
-        
-        let newModel = cache.getModelFromCache(byId: "1");
-        XCTAssertEqual(newModel?.isLive, model.isLive);
-        XCTAssertEqual(newModel?.name, model.name);
-        
-        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: {
+            
+            self.cache.clearCache();
+            self.cache.loadCache();
+            
+            let newModel = self.cache.getModelFromCache(byId: "1");
+            XCTAssertEqual(newModel?.isLive, model.isLive);
+            XCTAssertEqual(newModel?.name, model.name);
+            exp.fulfill();
+            
+        });
+        self.waitForExpectations(timeout: 3, handler: nil);
         
     }
     
