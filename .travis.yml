@@ -13,4 +13,5 @@ before_install:
 - pod repo update
 - pod install --project-directory=Example
 script:
+- xcodebuild -workspace Example/PersistentSwift.xcworkspace -scheme PersistentSwift-Example build-for-testing
 - xctool -workspace Example/PersistentSwift.xcworkspace -scheme PersistentSwift-Example run-tests -test-sdk iphonesimulator
