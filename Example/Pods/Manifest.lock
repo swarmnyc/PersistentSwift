@@ -5,7 +5,7 @@ PODS:
   - Moya/Core (8.0.2):
     - Alamofire (~> 4.1)
     - Result (~> 3.0)
-  - PersistentSwift (0.1.3):
+  - PersistentSwift (0.2.6):
     - Moya
     - PromiseKit
     - SwiftyJSON
@@ -33,7 +33,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   Alamofire: 856a113053a7bc9cbe5d6367a555d773fc5cfef7
   Moya: 47f61da5b634aa71f676431b64ee0f81e976296d
-  PersistentSwift: 79a789ffe828b38dc18c759daf4e724c026778e2
+  PersistentSwift: 0cd33863a87c1d491fa677934b7173768ebca319
   PromiseKit: 779f2e41faf62d854e7593026ddbcb0bb5c5002d
   Result: 4e3ed5995ed94d0cd6a09be9a431fce3f3624bbf
   SwiftyJSON: c2842d878f95482ffceec5709abc3d05680c0220
