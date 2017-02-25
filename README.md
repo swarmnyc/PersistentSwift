@@ -73,6 +73,11 @@ PersistentSwift is available under the MIT license. See the LICENSE file for mor
     ArticleCache.shared.getModelsFromCache(); //returns an array of all models in the cache;
     ArticleCache.shared.getModelsDictionaryFromCache(); //returns a dictionary where the key is the model id and the values are the models;
     ArticleCache.shared.getModelFromCache(byId: "1"); //return the model of id from cache
+    
+    
+    //after saving the cache on subsequent loads you can call
+    ArticleCache.shared.loadCache();
+    //and have access to your saved articles in the cache
         
 ```
 
