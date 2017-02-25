@@ -43,6 +43,12 @@ open class PSModelCache<T: PSCachedModel> {
     var eventHandler: DataBindType<PSDataEvent<T>> = DataBindType<PSDataEvent<T>>(value: .none);
     var dictionaryCache: [String: T] = [:];
     
+    open var cacheId: String {
+        get {
+            return "";
+        }
+    }
+    
     public init() {
         
     }
@@ -110,9 +116,9 @@ open class PSModelCache<T: PSCachedModel> {
         
     }
     
-    /// load everything in the cache
+      /// load everything in the cache
     public func loadCache() {
-        if let data = UserDefaults.standard.object(forKey: T.modelName) as? Data {
+        if let data = UserDefaults.standard.object(forKey: T.modelName + self.cacheId) as? Data {
             if let objs = NSKeyedUnarchiver.unarchiveObject(with: data) as? [String: T] {
                 self.dictionaryCache = objs;
             }
@@ -123,7 +129,7 @@ open class PSModelCache<T: PSCachedModel> {
     public func saveCache() {
         Background.runInBackground {
             let data = NSKeyedArchiver.archivedData(withRootObject: self.dictionaryCache);
-            UserDefaults.standard.setValue(data, forKey: T.modelName);
+            UserDefaults.standard.setValue(data, forKey: T.modelName + self.cacheId);
         }
     }
     
