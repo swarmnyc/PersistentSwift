@@ -39,7 +39,7 @@ TODO: Add long description of the pod here.
   # s.public_header_files = 'Pod/Classes/**/*.h'
   # s.frameworks = 'UIKit', 'MapKit'
   # s.dependency 'AFNetworking', '~> 2.3'
-  s.dependency 'SwiftyJSON'
-  s.dependency 'Moya'
-  s.dependency 'PromiseKit'
+  s.dependency 'SwiftyJSON', "3.1.4"
+  s.dependency 'Moya', '8.0.2'
+  s.dependency 'PromiseKit', "4.1.7"
 end
