@@ -10,7 +10,9 @@ xcode_scheme: PersistentSwift_Tests
 podfile: Example/Podfile
 before_install:
 - gem install cocoapods # Since Travis is not always on latest version
+- brew cask install fastlane
 - pod repo update
 - pod install --project-directory=Example
+- echo y | fastlane snapshot reset_simulators
 script:
-- xcodebuild -workspace Example/PersistentSwift.xcworkspace -scheme PersistentSwift-Example -sdk iphonesimulator -destination 'platform=iOS Simulator, id=D0257C83-DB81-4567-93EC-4C6DF23DC24C, OS=10.2, name=iPhone 5' build-for-testing test CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+- xcodebuild -workspace Example/PersistentSwift.xcworkspace -scheme PersistentSwift-Example -sdk iphonesimulator -destination 'platform=iOS Simulator,OS=10.2,name=iPhone 5' build-for-testing test CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
