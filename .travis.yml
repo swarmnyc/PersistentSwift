@@ -4,14 +4,11 @@
 
 osx_image: xcode8.2
 language: objective-c
-xcode_workspace: PersistentSwift
-xcode_scheme: PersistentSwift_Tests
+xcode_workspace: Example/PersistentSwift
+xcode_scheme: Example/PersistentSwift_Tests
 #cache: cocoapods
 podfile: Example/Podfile
 # before_install:
 #- gem install cocoapods # Since Travis is not always on latest version
 #- pod install --project-directory=Example
-script:
-- cd Example/
-- xctool -workspace PersistentSwift -scheme PersistentSwift_Tests build test
-- pod lib lint
+
