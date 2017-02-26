@@ -49,6 +49,12 @@ open class PSModelCache<T: PSCachedModel> {
         }
     }
     
+    public var cacheName: String {
+        get {
+            return "\(T.modelName)\(self.cacheId)"
+        }
+    }
+    
     public init() {
         
     }
@@ -118,7 +124,7 @@ open class PSModelCache<T: PSCachedModel> {
     
       /// load everything in the cache
     public func loadCache() {
-        if let data = UserDefaults.standard.object(forKey: T.modelName + self.cacheId) as? Data {
+        if let data = UserDefaults.standard.object(forKey: self.cacheName) as? Data {
             if let objs = NSKeyedUnarchiver.unarchiveObject(with: data) as? [String: T] {
                 self.dictionaryCache = objs;
             }
@@ -127,9 +133,17 @@ open class PSModelCache<T: PSCachedModel> {
     
     /// save everything in the cache
     public func saveCache() {
-        Background.runInBackground {
             let data = NSKeyedArchiver.archivedData(withRootObject: self.dictionaryCache);
-            UserDefaults.standard.setValue(data, forKey: T.modelName + self.cacheId);
+            UserDefaults.standard.setValue(data, forKey: self.cacheName);
+    }
+    
+    public func saveCacheInBackground() -> Promise<Void> {
+        return Promise<Void> {
+            fulfill, reject in
+            Background.runInBackground {
+                self.saveCache();
+                fulfill();
+            }
         }
     }
     

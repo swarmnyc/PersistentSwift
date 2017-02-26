@@ -189,6 +189,65 @@ class Tests: XCTestCase {
     }
     
     
+    func testTwoCaches() {
+        
+        class Cache2: PSModelCache<TestModel> {
+            
+            static var shared: Cache2 = Cache2();
+            
+            override var cacheId: String {
+                get {
+                    return "cache2";
+                }
+            }
+            
+        }
+        let model = TestModel();
+        model.id = "1";
+        model.isLive = true;
+        model.name = "hello";
+        
+        let model2 = TestModel();
+        model2.id = "2";
+        model2.isLive = false;
+        model2.name = "h";
+        
+        cache.addModelToCache(model: model);
+        Cache2.shared.addModelToCache(model: model2);
+        
+        cache.saveCache();
+        Cache2.shared.saveCache();
+        
+        cache.clearCache();
+        Cache2.shared.clearCache();
+        
+        cache.loadCache();
+        Cache2.shared.loadCache();
+        
+        let cache1 = cache.getModelsFromCache();
+        let cache2 = Cache2.shared.getModelsFromCache();
+        
+        XCTAssertEqual(cache1[0].id, "1");
+        XCTAssertEqual(cache2[0].id, "2");
+    }
+    
+    func testCacheName() {
+        class Cache2: PSModelCache<TestModel> {
+            
+            static var shared: Cache2 = Cache2();
+            
+            override var cacheId: String {
+                get {
+                    return "cache2";
+                }
+            }
+            
+        }
+        
+        XCTAssertEqual(Cache2.shared.cacheName, "\(TestModel.modelName)cache2")
+        
+    }
+    
     func testCache() {
         let exp = self.expectation(description: "loading cache works");
         let model = TestModel();
