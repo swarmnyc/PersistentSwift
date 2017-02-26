@@ -12,20 +12,6 @@ import PromiseKit
 import Alamofire
 
 
-/// Extend default Manager to support timeout
-class DefaultAlamofireManager: Alamofire.SessionManager {
-
-	/// Get a shared Manager with timeout
-	static func sharedManager(_ timeout: TimeInterval) -> DefaultAlamofireManager {
-		let configuration = URLSessionConfiguration.default
-		configuration.httpAdditionalHeaders = Alamofire.SessionManager.defaultHTTPHeaders
-		configuration.timeoutIntervalForRequest = timeout // as seconds, you can set your requesttimeout
-		configuration.timeoutIntervalForResource = timeout // as seconds, you can set your resource timeout
-		configuration.requestCachePolicy = .useProtocolCachePolicy
-		return DefaultAlamofireManager(configuration: configuration)
-	}
-}
-
 
 public struct TimeoutPlugin<T:PSJSONApiModel, D:TestData, S: PSServiceSettings>: PluginType {
     

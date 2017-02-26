@@ -233,17 +233,12 @@ public enum PSDataEvent<T: PSCachedModel> {
         switch self {
         case .none:
             return nil;
-            break;
         case .newDataAdded(let data):
             return data;
-            break;
         case .dataUpdated(let data):
             return data;
-            break;
         case .dataDeleted(let data):
             return data;
-            break;
-            
         }
     }
     
@@ -251,20 +246,16 @@ public enum PSDataEvent<T: PSCachedModel> {
         switch self {
         case .newDataAdded(_):
             return true;
-            break;
         default:
             return false;
-            break;
         }
     }
     public func isDataUpdated() -> Bool {
         switch self {
         case .dataUpdated(_):
             return true;
-            break;
         default:
             return false;
-            break;
         }
     }
     
@@ -274,7 +265,6 @@ public enum PSDataEvent<T: PSCachedModel> {
             return true;
         default:
             return false;
-            break;
         }
     }
     

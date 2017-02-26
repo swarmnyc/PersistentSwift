@@ -226,7 +226,6 @@ class Tests: XCTestCase {
     }
 
     func testCache() {
-        let exp = self.expectation(description: "loading cache works")
         let model = TestModel()
         model.id = "1"
         model.isLive = true
@@ -235,19 +234,54 @@ class Tests: XCTestCase {
         cache.addModelToCache(model: model)
 
         cache.saveCache()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: {
+        
+        self.cache.clearCache()
+        self.cache.loadCache()
+        
+        let newModel = self.cache.getModelFromCache(byId: "1")
+        XCTAssertEqual(newModel?.isLive, model.isLive)
+        XCTAssertEqual(newModel?.name, model.name)
+        
+    }
+    
+    func testAddingArrayToCache() {
+        let model = TestModel()
+        model.id = "1"
+        model.isLive = true
+        model.name = "hello"
 
+        let model2 = TestModel()
+        model2.id = "2"
+        model2.isLive = true
+        model2.name = "hello"
+
+        self.cache.addModelsToCache(models: [model, model2])
+        
+        XCTAssertEqual(self.cache.getModelsFromCache().count, 2)
+        XCTAssertEqual(self.cache.getModelsDictionaryFromCache().count, 2)
+    }
+    
+    func testCacheInBackground() {
+        let exp = self.expectation(description: "loading cache works")
+        let model = TestModel()
+        model.id = "1"
+        model.isLive = true
+        model.name = "hello"
+        
+        cache.addModelToCache(model: model)
+        _ = cache.saveCacheInBackground().then { Void -> Void in
             self.cache.clearCache()
             self.cache.loadCache()
-
+            
             let newModel = self.cache.getModelFromCache(byId: "1")
             XCTAssertEqual(newModel?.isLive, model.isLive)
             XCTAssertEqual(newModel?.name, model.name)
             exp.fulfill()
 
-        })
+        }
+        
         self.waitForExpectations(timeout: 3, handler: nil)
-
+        
     }
 
     func testRemoveFromCache() {
@@ -263,5 +297,88 @@ class Tests: XCTestCase {
         cache.removeModelFromCache(ofId: "1")
         XCTAssertEqual(cache.getModelsFromCache().count, 0)
     }
-
+    
+    
+    func testPSDataEventGetData() {
+        var model = TestModel()
+        model.id = "1"
+        model.isLive = true
+        model.name = "hello"
+        let event = PSDataEvent.dataDeleted(model)
+        XCTAssertEqual(event.getData()!.id, "1")
+        model.id = "2"
+        let event2 = PSDataEvent.dataUpdated(model)
+        XCTAssertEqual(event2.getData()!.id, "2")
+        model.id = "3"
+        let event3 = PSDataEvent.newDataAdded(model)
+        XCTAssertEqual(event3.getData()!.id, "3")
+        
+        let event4 = PSDataEvent<TestModel>.none
+        XCTAssertEqual(event4.getData(), nil)
+        
+    }
+    
+    
+    func testPSDataEventEventType() {
+        let model = TestModel()
+        model.id = "1"
+        model.isLive = true
+        model.name = "hello"
+        let event = PSDataEvent.dataDeleted(model)
+        XCTAssertEqual(event.isDataDeleted(), true)
+        XCTAssertEqual(event.isDataUpdated(), false)
+        XCTAssertEqual(event.isDataAdded(), false)
+        model.id = "2"
+        let event2 = PSDataEvent.dataUpdated(model)
+        XCTAssertEqual(event2.isDataUpdated(), true)
+        XCTAssertEqual(event2.isDataDeleted(), false)
+        XCTAssertEqual(event2.isDataAdded(), false)
+        model.id = "3"
+        let event3 = PSDataEvent.newDataAdded(model)
+        XCTAssertEqual(event3.isDataAdded(), true)
+        XCTAssertEqual(event3.isDataDeleted(), false)
+        XCTAssertEqual(event3.isDataUpdated(), false)
+        
+        let event4 = PSDataEvent<TestModel>.none
+        XCTAssertEqual(event4.getData(), nil)
+        XCTAssertEqual(event4.isDataAdded(), false)
+        XCTAssertEqual(event4.isDataDeleted(), false)
+        XCTAssertEqual(event4.isDataUpdated(), false)
+    }
+    
+    func testEventHandlerOnAddOnCache() {
+        let expAdd = self.expectation(description: "add callback gets called")
+        var callbackAdd: (PSDataEvent<TestModel>) -> Void = { event in
+            if event.isDataAdded() {
+                expAdd.fulfill()
+            }
+        }
+        let expUpdate = self.expectation(description: "update callback gets called")
+        var callbackUpdate: (PSDataEvent<TestModel>) -> Void = { event in
+            if event.isDataUpdated() {
+                expUpdate.fulfill()
+            }
+        }
+        let expDelete = self.expectation(description: "deleteUpdateGetsCalled")
+        var callbackDelete: (PSDataEvent<TestModel>) -> Void = { event in
+            if event.isDataDeleted() {
+                expDelete.fulfill()
+            }
+        }
+        self.cache.addCallbackOnCacheChange(&callbackAdd)
+        self.cache.addCallbackOnCacheChange(&callbackUpdate)
+        self.cache.addCallbackOnCacheChange(&callbackDelete)
+        
+        
+        let model = TestModel()
+        model.id = "jjjj"
+        model.name = "hello"
+        
+        self.cache.addModelToCache(model: model)
+        model.name = "what"
+        self.cache.addModelToCache(model: model)
+        self.cache.removeModelFromCache(ofId: "jjjj")
+        self.waitForExpectations(timeout: 4, handler: nil)
+    }
+    
 }

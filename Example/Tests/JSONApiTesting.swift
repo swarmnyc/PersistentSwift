@@ -300,16 +300,13 @@ class JSONApiTesting: XCTestCase {
         self.waitForExpectations(timeout: 5, handler: nil)
     }
 
-    func testExample() {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-    }
-
-    func testPerformanceExample() {
-        // This is an example of a performance test case.
-        self.measure {
-            // Put the code you want to measure the time of here.
-        }
+    func testNoData() {
+        XCTAssertEqual(NoTestData.deleteTestData, Data())
+        XCTAssertEqual(NoTestData.getCreateTestData, Data())
+        XCTAssertEqual(NoTestData.getListPaginatedTestData, Data())
+        XCTAssertEqual(NoTestData.getListTestData, Data())
+        XCTAssertEqual(NoTestData.getListWithParamsTestData, Data())
+        XCTAssertEqual(NoTestData.getTestData, Data())
     }
 
 }

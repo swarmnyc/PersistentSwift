@@ -35,15 +35,6 @@ open class DataBindee<A> {
         
     }
     
-    init (listener: inout (A,A) -> ()) {
-        //self.callback = listener;
-        
-        
-        self.oldValueCellback = listener;
-        
-        
-    }
-    
 }
 
 ////How to use
@@ -88,7 +79,7 @@ open class DataBindee<A> {
 public typealias DataBindCallback<T> = (T) -> ()
 public typealias DataBindCallbackWithOldValue<T> = (T,T) -> ()
 
-open class DataBindType<T> {
+class DataBindType<T> {
     
     
     private var value: T
@@ -102,34 +93,10 @@ open class DataBindType<T> {
     }
     
     public func addBindee(_ callback: inout (T) -> ()) {
-        
         let listener: DataBindee = DataBindee<T>(listener: &callback);
         self.bindees.append(listener);
-        
-        
     }
     
-    public func addBindee(_ callback: inout (T) -> (), runListener: Bool) {
-        self.addBindee(&callback);
-        if (runListener) {
-            callback(self.value)
-        }
-    }
-    
-    public func addBindee(_ callback: inout (T,T) -> ()) {
-        
-        let listener: DataBindee = DataBindee<T>(listener: &callback);
-        self.bindees.append(listener);
-        
-        
-    }
-    
-    public func addBindee(_ callback: inout (T,T) -> (), runListener: Bool) {
-        self.addBindee(&callback);
-        if (runListener) {
-            callback(self.value, self.value)
-        }
-    }
     
     public func set(_ value: T) {
         let oldValue = self.value;
@@ -143,16 +110,9 @@ open class DataBindType<T> {
         self.dontRun = false;
         
     }
-    
-    public func set(_ value: T, dontRun: Bool) {
-        self.dontRun = dontRun;
-        self.value = value;
-    }
-    
-    
+ 
     public func get() -> T {
         return self.value;
     }
-    
     
 }

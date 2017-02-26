@@ -17,27 +17,6 @@ class Background {
         }
     }
     
-    static func runInBackgroundAndCallback(_ inBackground: @escaping (() -> ()), callback: @escaping (() -> ())) {
-        let priority = DispatchQueue.GlobalQueuePriority.background;
-        DispatchQueue.global(priority: priority).async {
-            inBackground()
-            DispatchQueue.main.async {
-                callback()
-            }
-        }
-    }
-    
-    static func runInBackgroundAsyncAndCallback(_ inBackground: @escaping (( (() -> ()) ) -> ()), callback: @escaping (() -> ())) {
-        let priority = DispatchQueue.GlobalQueuePriority.background;
-        DispatchQueue.global(priority: priority).async {
-            inBackground({
-                DispatchQueue.main.async {
-                    callback();
-                }
-            })
-        }
-    }
-    
     static func runInMainThread(_ closure: @escaping (() -> ())) {
         DispatchQueue.main.async(execute: closure);
     }
