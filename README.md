@@ -88,7 +88,7 @@ For any property type that doesn't conform to NSCoding and can't be cached prope
 
 Example for CLLocationCoordinate2D:
 
-```
+```swift
 open class PSLocationAttribute: PSAttribute<CLLocationCoordinate2D> {
     
     open override func serializeToJSON() -> Any? {
@@ -113,7 +113,7 @@ open class PSLocationAttribute: PSAttribute<CLLocationCoordinate2D> {
 ```
 Example for Date Objects:
 
-```
+```swift
 
 open class PSDateAttribute: PSAttribute<Date> {
     
@@ -143,7 +143,7 @@ open class PSDateAttribute: PSAttribute<Date> {
 
 ##How to make json api requests
 
-```
+```swift
 	public struct ArticlesNetworkSettings: PSServiceSettings {
         //whether or not you want to stub the request and return test data
         static var isTesting: Bool {
