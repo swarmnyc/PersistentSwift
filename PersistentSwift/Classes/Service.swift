@@ -120,11 +120,12 @@ public class PSService<T:PSJSONApiModel, D: TestData, S: PSServiceSettings> {
 
 	//a wrapper for a request which returns a single object, type is the type of request, defined in the API map
 	public func makeRequest(_ type: PSServiceMap<T, D, S>) -> Promise<T> {
-        UIApplication.shared.isNetworkActivityIndicatorVisible = true;
-		let promise = Promise<T>.pending();
+        Background.runInMainThread {
+            UIApplication.shared.isNetworkActivityIndicatorVisible = true;
+        }
+        let promise = Promise<T>.pending();
 			self.provider.request(type, completion: {
 				result in
-                UIApplication.shared.isNetworkActivityIndicatorVisible = false;
 				switch result {
 					case let .success(moyaResponse):
                         Background.runInBackground {
@@ -133,6 +134,7 @@ public class PSService<T:PSJSONApiModel, D: TestData, S: PSServiceSettings> {
 				try moyaResponse.filterSuccessfulStatusAndRedirectCodes();
                                 let object = try moyaResponse.map(to: T.self);
                                 Background.runInMainThread {
+                                    UIApplication.shared.isNetworkActivityIndicatorVisible = false;
                                     promise.fulfill(object);
                                 }
                             }
@@ -140,6 +142,7 @@ public class PSService<T:PSJSONApiModel, D: TestData, S: PSServiceSettings> {
                                 print(error);
                                 print(type);
                                 Background.runInMainThread {
+                                    UIApplication.shared.isNetworkActivityIndicatorVisible = false;
                                     promise.reject(error);
                                 }
                             }
@@ -147,6 +150,7 @@ public class PSService<T:PSJSONApiModel, D: TestData, S: PSServiceSettings> {
 						break;
 					case let .failure(error):
 						Background.runInMainThread {
+                            UIApplication.shared.isNetworkActivityIndicatorVisible = false;
 							promise.reject(error);
 						}
 						break;
@@ -156,18 +160,20 @@ public class PSService<T:PSJSONApiModel, D: TestData, S: PSServiceSettings> {
 	}
 
 	public func makeRequestNoObjectReturn(_ type: PSServiceMap<T, D, S>) -> Promise<Void> {
-        UIApplication.shared.isNetworkActivityIndicatorVisible = true;
-		let promise = Promise<Void>.pending();
+        Background.runInMainThread {
+            UIApplication.shared.isNetworkActivityIndicatorVisible = true;
+        }
+        let promise = Promise<Void>.pending();
 		Background.runInBackground {
 			self.provider.request(type, completion: {
 				result in
-                UIApplication.shared.isNetworkActivityIndicatorVisible = false;
 
                 switch result {
 					case let .success(moyaResponse):
 						do {
 							try moyaResponse.filterSuccessfulStatusAndRedirectCodes();
 							Background.runInMainThread {
+                                UIApplication.shared.isNetworkActivityIndicatorVisible = false;
 								promise.fulfill();
 							}
 
@@ -175,12 +181,14 @@ public class PSService<T:PSJSONApiModel, D: TestData, S: PSServiceSettings> {
 						catch {
 							print(error);
 							Background.runInMainThread {
+                                UIApplication.shared.isNetworkActivityIndicatorVisible = false;
 								promise.reject(error);
 							}
 						}
 						break;
 					case let .failure(error):
 						Background.runInMainThread {
+                            UIApplication.shared.isNetworkActivityIndicatorVisible = false;
 							promise.reject(error);
 						}
 						break;
@@ -194,12 +202,13 @@ public class PSService<T:PSJSONApiModel, D: TestData, S: PSServiceSettings> {
 
 	//a wrapper for a request which returns an array of objects
 	public func makeRequestArray(_ type: PSServiceMap<T, D, S>) -> Promise<[T]> {
-        UIApplication.shared.isNetworkActivityIndicatorVisible = true;
+        Background.runInMainThread {
+            UIApplication.shared.isNetworkActivityIndicatorVisible = true;
+        }
 		let promise = Promise<[T]>.pending();
 		Background.runInBackground {
 			self.provider.request(type, completion: {
 				result in
-                UIApplication.shared.isNetworkActivityIndicatorVisible = false;
                 switch result {
 					case let .success(moyaResponse):
                         Background.runInBackground {
@@ -207,12 +216,14 @@ public class PSService<T:PSJSONApiModel, D: TestData, S: PSServiceSettings> {
 				try moyaResponse.filterSuccessfulStatusAndRedirectCodes();    
                                 let objects = try moyaResponse.map(to: [T.self]) as! [T];
                                 Background.runInMainThread {
+                                    UIApplication.shared.isNetworkActivityIndicatorVisible = false;
                                     promise.fulfill(objects);
                                 }
                             }
                             catch {
                                 print(error);
                                 Background.runInMainThread {
+                                    UIApplication.shared.isNetworkActivityIndicatorVisible = false;
                                     promise.reject(error);
                                 }
                             }
@@ -220,6 +231,7 @@ public class PSService<T:PSJSONApiModel, D: TestData, S: PSServiceSettings> {
 						break;
 					case let .failure(error):
 						Background.runInMainThread {
+                            UIApplication.shared.isNetworkActivityIndicatorVisible = false;
 							promise.reject(error);
 						}
 						break;
