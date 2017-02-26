@@ -9,8 +9,6 @@
 import UIKit
 import PersistentSwift
 
-
-
 class ViewController: UIViewController {
 
     override func viewDidLoad() {
@@ -22,12 +20,9 @@ class ViewController: UIViewController {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
     }
-    
+
     override func viewDidAppear(_ animated: Bool) {
-        super.viewDidAppear(animated);
+        super.viewDidAppear(animated)
     }
-    
-    
-    
 
 }
