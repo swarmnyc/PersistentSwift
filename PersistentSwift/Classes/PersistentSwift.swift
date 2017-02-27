@@ -384,7 +384,7 @@ public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
         if let value = aDecoder.decodeObject(forKey: self.jsonKey) as? [String: Any] {
             let json = JSON([self.jsonKey: value]);
             self.deserializeFromJSON(json);
-        }
+        } 
         
     }
     
