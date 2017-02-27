@@ -392,12 +392,16 @@ public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
     
     
     public func serializeToJSON() -> Any? {
-        var topLevel: [String: Any] = [:];
-        var data: [String: Any] = [:];
-        data["type"] = T.modelName;
-        data["id"] = self.id.pointee;
-        topLevel["data"] = data;
-        return topLevel;
+        if let id = self.id.pointee {
+            var topLevel: [String: Any] = [:];
+            var data: [String: Any] = [:];
+            data["type"] = T.modelName;
+            data["id"] = id;
+            topLevel["data"] = data;
+            return topLevel;
+        } else {
+            return nil;
+        }
     }
     
     public func deserializeFromJSON(_ json: JSON) {
