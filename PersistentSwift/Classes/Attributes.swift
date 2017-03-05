@@ -28,6 +28,7 @@ public protocol PSJSONAPIWithGet: PSJSONAPIProperty {
 
 
 
+/// A basic attribute property (takes care of transforming from json to a swift object
 open class PSAttribute<T>: PSJSONAPIWithGet {
     
     public typealias ValueType = T?
@@ -36,6 +37,11 @@ open class PSAttribute<T>: PSJSONAPIWithGet {
     
     public var jsonKey: String = "";
     
+    /// Create an attribute object
+    ///
+    /// - Parameters:
+    ///   - property: a pointer to the property
+    ///   - jsonKey: the name of the property in the JSON response
     public init(property: inout T?, jsonKey: String) {
         
         self.value = UnsafeMutablePointer<T?>(&property);
@@ -50,12 +56,18 @@ open class PSAttribute<T>: PSJSONAPIWithGet {
     }
     
     
+    /// Any transforms necessary from the json to assing a value to the pointer
+    ///
+    /// - Parameter json: the json from the request
     open func deserializeFromJSON(_ json: JSON) {
         self.value.pointee = (json[self.jsonKey].rawValue as? T);
     }
     
     
     
+    /// Any transforms necessary to turn the property into json
+    ///
+    /// - Returns: Any representation of the property
     open func serializeToJSON() -> Any? {
         return self.value.pointee
     }
@@ -63,7 +75,7 @@ open class PSAttribute<T>: PSJSONAPIWithGet {
     
 }
 
-
+/// Takes care of bridging to one relationships from swift to json
 public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
     
     
@@ -75,6 +87,12 @@ public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
     public var jsonKey: String = "";
     
     
+    /// Create a PSToOne object
+    ///
+    /// - Parameters:
+    ///   - property: a pointer to the property
+    ///   - idProperty: a pointer to a property holding the id of the relationship object
+    ///   - jsonKey: the name of the key in the json response
     public init(property: inout T?, idProperty: inout String?, jsonKey: String) {
         self.value = UnsafeMutablePointer<ValueType>(&property);
         self.id = UnsafeMutablePointer<String?>(&idProperty);
@@ -94,7 +112,9 @@ public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
     
     
     
-    
+    /// Any transforms necessary to turn the property into json
+    ///
+    /// - Returns: Any representation of the property
     public func serializeToJSON() -> Any? {
         if let id = self.id.pointee {
             var topLevel: [String: Any] = [:];
@@ -107,7 +127,9 @@ public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
             return nil;
         }
     }
-    
+    /// Any transforms necessary from the json to assing a value to the pointer
+    ///
+    /// - Parameter json: the json from the request
     public func deserializeFromJSON(_ json: JSON) {
         if let id = json[jsonKey]["data"]["id"].string {
             self.id.pointee = id;
@@ -117,6 +139,7 @@ public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
     
 }
 
+/// Takes care of bridging to many relationships from swift to json
 public class PSToMany<T: PSJSONApiModel>: PSJSONAPIWithGet {
     
     
@@ -128,7 +151,11 @@ public class PSToMany<T: PSJSONApiModel>: PSJSONAPIWithGet {
     
     
     
-    
+    /// Create a PSToMany object
+    ///
+    /// - Parameters:
+    ///   - property: a pointer to the property
+    ///   - idProperty: a pointer to a property holding the id of the relationship object
     public init(property: inout [T]?, idProperty: inout [String]?, jsonKey: String) {
         self.value = UnsafeMutablePointer<[T]?>(&property);
         self.ids = UnsafeMutablePointer<[String]?>(&idProperty);

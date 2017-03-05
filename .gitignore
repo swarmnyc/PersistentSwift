@@ -76,3 +76,9 @@ crashlytics-build.properties
 fabric.properties
 
 **.xcworkspace/
+
+test_output/report\.html
+
+test_output/report\.junit
+
+test_output/

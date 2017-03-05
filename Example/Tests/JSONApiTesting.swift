@@ -171,7 +171,7 @@ class JSONApiTesting: XCTestCase {
         }
         self.waitForExpectations(timeout: 15, handler: nil)
     }
-    
+ 
     
     
     func testGetSingleRequest() {
@@ -287,6 +287,24 @@ class JSONApiTesting: XCTestCase {
 
     }
 
+     func testUpdatingAnObject() {
+        let exp = self.expectation(description: "will update an article")
+        let article = Articles()
+        article.title = "test title"
+        article.body = "test body"
+        let author = Author()
+        author.id = "test id"
+        article.author = author
+        ArticlesNetworkManager.shared.updateObject(obj: article).then(execute: { article -> Void in
+            XCTAssertEqual(article.authorId, "test id")
+            XCTAssertEqual(article.title, "test title")
+            XCTAssertEqual(article.body, "test body")
+            exp.fulfill()
+        }).catch { _ in
+            XCTAssert(false, "request failed")
+        }
+        self.waitForExpectations(timeout: 30, handler: nil)
+    }
     func testCreateRequest() {
         let exp = self.expectation(description: "will create an article")
 
@@ -305,31 +323,6 @@ class JSONApiTesting: XCTestCase {
         }).catch { _ in
             XCTAssert(false, "request failed")
         }
-        /*
-        PSDataManager<Articles, ArticlesTestData>.saveNewObject(obj: article).then {
-            article -> Void in
-            XCTAssertEqual(article.authorId, "test id");
-            XCTAssertEqual(article.title, "test title");
-            XCTAssertEqual(article.body, "test body");
-            exp.fulfill();
-
-            }.catch {
-                error in
-                XCTAssert(false, "request failed");
-        }
- */
-        /*
-        ArticleService.shared.makeRequest(.createObject(obj: article)).then {
-            article -> Void in
-            XCTAssertEqual(article.authorId, "test id");
-            XCTAssertEqual(article.title, "test title");
-            XCTAssertEqual(article.body, "test body");
-            exp.fulfill();
-            }.catch {
-                error in
-                XCTAssert(false, "request failed");
-        }
- */
 
         self.waitForExpectations(timeout: 30, handler: nil)
 
