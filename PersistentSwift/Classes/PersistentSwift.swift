@@ -10,34 +10,6 @@ import SwiftyJSON
 import PromiseKit
 
 
-
-
-public protocol PSCodableEnum {
-    func int() -> Int;
-    
-    init?(rawValue:Int);
-    
-    init(defaultValue:Any)
-    
-}
-
-
-extension NSCoder {
-    func encodeEnum(_ anEnum: PSCodableEnum, forKey:String) {
-        self.encode(anEnum.int(), forKey: forKey);
-    };
-    
-    func decodeEnum<T: PSCodableEnum>(forKey key:String) -> T {
-        if let t = T(rawValue:self.decodeInteger(forKey: key)) {
-            return t
-        } else {
-            return T(defaultValue:0)
-        }
-    }
-}
-
-
-
 open class PSModelCache<T: PSCachedModel> {
     
     var eventHandler: DataBindType<PSDataEvent<T>> = DataBindType<PSDataEvent<T>>(value: .none);
