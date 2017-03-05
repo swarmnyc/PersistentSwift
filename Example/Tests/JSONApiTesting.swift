@@ -38,7 +38,7 @@ class JSONApiTesting: XCTestCase {
         static var baseUrl: String {
             return "http://google.com/"
         }
-        
+
         static var verboseLogging: Bool {
             return true
         }
@@ -183,7 +183,7 @@ class JSONApiTesting: XCTestCase {
             XCTAssertEqual(art.body, "The shortest article. Ever.")
             exp.fulfill()
         })
-        self.waitForExpectations(timeout: 0.5, handler: nil)
+        self.waitForExpectations(timeout: 1.5, handler: nil)
     }
     func testGetPaginatedListWithParams() {
         let exp = self.expectation(description: "will get a list of articles")
