@@ -39,7 +39,7 @@ public protocol PSServiceSettings {
   
     static var baseUrl: String { get }
     static var isTesting: Bool { get }
-    
+    static var verboseLogging: Bool { get }
     static func getTimeout<Model: PSJSONApiModel, TestD: TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> Double
     static func getAuthToken<Model: PSJSONApiModel, TestD: TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> String?
     
@@ -55,6 +55,10 @@ struct TestSettings: PSServiceSettings {
         return false;
     }
     
+    static var verboseLogging: Bool {
+        return false
+    }
+    
     static func getTimeout<Model : PSJSONApiModel, TestD : TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> Double {
         return 12;
     }
@@ -62,7 +66,6 @@ struct TestSettings: PSServiceSettings {
     static func getAuthToken<Model : PSJSONApiModel, TestD : TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> String? {
         return nil;
     }
-    
     
 }
 
@@ -95,7 +98,7 @@ public class PSService<T:PSJSONApiModel, D: TestData, S: PSServiceSettings> {
             }, plugins: [
                     AuthPlugin<T, D, S>(tokenClosure: S.getAuthToken),
 					TimeoutPlugin<T, D, S>(timeoutGetter: S.getTimeout),
-					NetworkLoggerPlugin()
+					NetworkLoggerPlugin(verbose: S.verboseLogging)
 				]
 			)
 			return provider;

@@ -38,6 +38,10 @@ class JSONApiTesting: XCTestCase {
         static var baseUrl: String {
             return "http://google.com/"
         }
+        
+        static var verboseLogging: Bool {
+            return true
+        }
 
         static func getTimeout<Model: PSJSONApiModel, TestD: TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> Double {
             switch target {
@@ -98,15 +102,15 @@ class JSONApiTesting: XCTestCase {
 
     class ArticlesTestData: TestData {
         public static var getTestData: Data {
-            return Data()
+            return "{\n  \"data\": {\n    \"type\": \"articles\",\n    \"id\": \"1\",\n    \"attributes\": {\n      \"title\": \"JSON API paints my bikeshed!\",\n      \"body\": \"The shortest article. Ever.\",\n      \"created\": \"2015-05-22T14:56:29.000Z\",\n      \"updated\": \"2015-05-22T14:56:28.000Z\"\n    },\n    \"relationships\": {\n      \"author\": {\n        \"data\": {\"id\": \"42\", \"type\": \"people\"}\n      }\n    }\n  },\n  \"included\": [\n    {\n      \"type\": \"people\",\n      \"id\": \"42\",\n      \"attributes\": {\n        \"name\": \"John\",\n        \"age\": 80,\n        \"gender\": \"male\"\n      }\n    }\n  ]\n}".data(using: String.Encoding.utf8)!
         }
 
         public static var getListPaginatedTestData: Data {
-            return Data()
+            return "{\n  \"data\": [{\n    \"type\": \"articles\",\n    \"id\": \"1\",\n    \"attributes\": {\n      \"title\": \"JSON API paints my bikeshed!\",\n      \"body\": \"The shortest article. Ever.\",\n      \"created\": \"2015-05-22T14:56:29.000Z\",\n      \"updated\": \"2015-05-22T14:56:28.000Z\"\n    },\n    \"relationships\": {\n      \"author\": {\n        \"data\": {\"id\": \"42\", \"type\": \"people\"}\n      }\n    }\n  }],\n  \"included\": [\n    {\n      \"type\": \"people\",\n      \"id\": \"42\",\n      \"attributes\": {\n        \"name\": \"John\",\n        \"age\": 80,\n        \"gender\": \"male\"\n      }\n    }\n  ]\n}".data(using: String.Encoding.utf8)!
         }
 
         public static var getListWithParamsTestData: Data {
-            return Data()
+            return "{\n  \"data\": [{\n    \"type\": \"articles\",\n    \"id\": \"1\",\n    \"attributes\": {\n      \"title\": \"JSON API paints my bikeshed!\",\n      \"body\": \"The shortest article. Ever.\",\n      \"created\": \"2015-05-22T14:56:29.000Z\",\n      \"updated\": \"2015-05-22T14:56:28.000Z\"\n    },\n    \"relationships\": {\n      \"author\": {\n        \"data\": {\"id\": \"42\", \"type\": \"people\"}\n      }\n    }\n  }],\n  \"included\": [\n    {\n      \"type\": \"people\",\n      \"id\": \"42\",\n      \"attributes\": {\n        \"name\": \"John\",\n        \"age\": 80,\n        \"gender\": \"male\"\n      }\n    }\n  ]\n}".data(using: String.Encoding.utf8)!
         }
 
         public static var deleteTestData: Data {
@@ -154,6 +158,54 @@ class JSONApiTesting: XCTestCase {
         }
 
         self.waitForExpectations(timeout: 15, handler: nil)
+    }
+    func testGetListWithParams() {
+        let exp = self.expectation(description: "will get a list of articles")
+        ArticlesNetworkManager.shared.getListOfObjects(params: ["test":"test"]).then(execute: { articles -> Void in
+            XCTAssertEqual(articles.count, 1)
+            XCTAssertEqual(articles[0].title, "JSON API paints my bikeshed!")
+            XCTAssertEqual(articles[0].body, "The shortest article. Ever.")
+            exp.fulfill()
+        }).catch { _ in
+            XCTAssert(false)
+        }
+        self.waitForExpectations(timeout: 15, handler: nil)
+    }
+    
+    
+    
+    func testGetSingleRequest() {
+        let exp = self.expectation(description: "will get single object")
+        let article = Articles()
+        article.id = "test"
+        _ = ArticlesNetworkManager.shared.getObject(obj: article).then(execute: { art -> Void in
+            XCTAssertEqual(art.title, "JSON API paints my bikeshed!")
+            XCTAssertEqual(art.body, "The shortest article. Ever.")
+            exp.fulfill()
+        })
+        self.waitForExpectations(timeout: 0.5, handler: nil)
+    }
+    func testGetPaginatedListWithParams() {
+        let exp = self.expectation(description: "will get a list of articles")
+        ArticlesNetworkManager.shared.getPaginatedList(page: 2, limit: 10, params: ["test":"test"]).then(execute: { articles -> Void in
+            XCTAssertEqual(articles.count, 1)
+            XCTAssertEqual(articles[0].title, "JSON API paints my bikeshed!")
+            XCTAssertEqual(articles[0].body, "The shortest article. Ever.")
+            exp.fulfill()
+        }).catch { _ in
+            XCTAssert(false)
+        }
+        self.waitForExpectations(timeout: 15, handler: nil)
+    }
+    func testPaginatedParams() {
+        typealias APIMap = PSServiceMap<Articles, ArticlesTestData, ArticleSettings>
+        let paginatedParams = APIMap.getListPaginated(page: 2, limit: 10, params: ["test": "test"])
+        // swiftlint:disable:next force_cast
+        XCTAssertEqual((paginatedParams.parameters!["page"] as! Int), 2)
+        // swiftlint:disable:next force_cast
+        XCTAssertEqual((paginatedParams.parameters!["per_page"] as! Int), 10)
+        // swiftlint:disable:next force_cast
+        XCTAssertEqual((paginatedParams.parameters!["test"] as! String), "test")
 
     }
 
