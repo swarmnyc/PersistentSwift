@@ -77,7 +77,7 @@ struct TestSettings: PSServiceSettings {
 
 //A Generic class for making network requests (to be subclassed for each section of the API eg. AvatarService, EventService, UserService etc
 
-public class PSService<T:PSJSONApiModel, D: TestData, S: PSServiceSettings> {
+open class PSService<T:PSJSONApiModel, D: TestData, S: PSServiceSettings> {
     
 	var baseUrl: String = "";
     
