@@ -13,22 +13,8 @@ import PromiseKit
 import CoreLocation
 
 //swiftlint:disable line_length
-
+//swiftlint:disable type_body_length
 class JSONApiTesting: XCTestCase {
-    open class PSLocationAttribute: PSAttribute<CLLocationCoordinate2D> {
-
-        open override func serializeToJSON() -> Any? {
-            return [self.value.pointee?.longitude, self.value.pointee?.latitude]
-        }
-
-        open override func deserializeFromJSON(_ json: JSON) {
-            if let value = json[self.jsonKey].array {
-                self.value.pointee = CLLocationCoordinate2D(latitude: value[0].doubleValue, longitude: value[1].doubleValue)
-            }
-        }
-
-    }
-
     public struct ArticleSettings: PSServiceSettings {
 
         static var isTesting: Bool {
@@ -76,8 +62,8 @@ class JSONApiTesting: XCTestCase {
             return "articles"
         }
 
-        open var title: String? = "test"
-        open var body: String? = "body"
+        open var title: String = "test"
+        open var body: String = "body"
         var author: Author? {
             didSet {
                 if let author = self.author {
@@ -89,7 +75,7 @@ class JSONApiTesting: XCTestCase {
         }
         var authorId: String?
 
-        var location: CLLocationCoordinate2D?
+        var location: CLLocationCoordinate2D = CLLocationCoordinate2D()
 
         override public func register(attributes: inout [PSJSONAPIProperty], andRelationships relationships: inout [PSJSONAPIProperty]) {
             attributes.append(PSAttribute<String>(property: &self.body, jsonKey: "body"))
@@ -161,7 +147,7 @@ class JSONApiTesting: XCTestCase {
     }
     func testGetListWithParams() {
         let exp = self.expectation(description: "will get a list of articles")
-        ArticlesNetworkManager.shared.getListOfObjects(params: ["test":"test"]).then(execute: { articles -> Void in
+        ArticlesNetworkManager.shared.getListOfObjects(params: ["test": "test"]).then(execute: { articles -> Void in
             XCTAssertEqual(articles.count, 1)
             XCTAssertEqual(articles[0].title, "JSON API paints my bikeshed!")
             XCTAssertEqual(articles[0].body, "The shortest article. Ever.")
@@ -171,8 +157,7 @@ class JSONApiTesting: XCTestCase {
         }
         self.waitForExpectations(timeout: 15, handler: nil)
     }
- 
-    
+    // swiftlint:disable trailing_whitespace
     
     func testGetSingleRequest() {
         let exp = self.expectation(description: "will get single object")
@@ -185,9 +170,13 @@ class JSONApiTesting: XCTestCase {
         })
         self.waitForExpectations(timeout: 1.5, handler: nil)
     }
+    
     func testGetPaginatedListWithParams() {
         let exp = self.expectation(description: "will get a list of articles")
-        ArticlesNetworkManager.shared.getPaginatedList(page: 2, limit: 10, params: ["test":"test"]).then(execute: { articles -> Void in
+        let params: [String: Any] = ["test": "test"]
+        ArticlesNetworkManager.shared.getPaginatedList(page: 2,
+                                                       limit: 10,
+                                                       params: params).then(execute: { articles -> Void in
             XCTAssertEqual(articles.count, 1)
             XCTAssertEqual(articles[0].title, "JSON API paints my bikeshed!")
             XCTAssertEqual(articles[0].body, "The shortest article. Ever.")
@@ -197,6 +186,7 @@ class JSONApiTesting: XCTestCase {
         }
         self.waitForExpectations(timeout: 15, handler: nil)
     }
+    
     func testPaginatedParams() {
         typealias APIMap = PSServiceMap<Articles, ArticlesTestData, ArticleSettings>
         let paginatedParams = APIMap.getListPaginated(page: 2, limit: 10, params: ["test": "test"])
@@ -236,6 +226,7 @@ class JSONApiTesting: XCTestCase {
     }
 
     func testCreatingPostMultiRelationshipParams() {
+        // swiftlint:disable:next nesting
         class MultiAuthorPost: Articles {
             var authors: [Author]? = [] {
                 didSet {
@@ -251,10 +242,15 @@ class JSONApiTesting: XCTestCase {
                 }
             }
             var authorsIds: [String]?
-
-            override public func register(attributes: inout [PSJSONAPIProperty], andRelationships relationships: inout [PSJSONAPIProperty]) {
+            // swiftlint:disable:next line_length
+            override public func register(attributes: inout [PSJSONAPIProperty],
+                                          andRelationships relationships: inout [PSJSONAPIProperty]) {
+                
                 super.register(attributes: &attributes, andRelationships: &relationships)
-                relationships.append(PSToMany<Author>(property: &self.authors, idProperty: &self.authorsIds, jsonKey: "authors"))
+                let authorRelationship = PSToMany<Author>(property: &self.authors,
+                                                          idProperty: &self.authorsIds,
+                                                          jsonKey: "authors")
+                relationships.append(authorRelationship)
 
             }
 
@@ -263,9 +259,9 @@ class JSONApiTesting: XCTestCase {
         let article = MultiAuthorPost()
         article.title = "test title"
         article.body = "test body"
-        var a1 = Author()
+        let a1 = Author()
         a1.id = "1"
-        var a2 = Author()
+        let a2 = Author()
         a2.id = "2"
         article.authors = [a1, a2]
         let params = article.getCreateParameters(fromModelName: Articles.modelName)

@@ -15,19 +15,6 @@ import CoreLocation
 //swiftlint:disable line_length
 //swiftlint:disable trailing_whitespace
 class JSONApiTestingErrors: XCTestCase {
-    open class PSLocationAttribute: PSAttribute<CLLocationCoordinate2D> {
-        
-        open override func serializeToJSON() -> Any? {
-            return [self.value.pointee?.longitude, self.value.pointee?.latitude]
-        }
-        
-        open override func deserializeFromJSON(_ json: JSON) {
-            if let value = json[self.jsonKey].array {
-                self.value.pointee = CLLocationCoordinate2D(latitude: value[0].doubleValue, longitude: value[1].doubleValue)
-            }
-        }
-        
-    }
     
     public struct ArticleSettings: PSServiceSettings {
         
@@ -76,8 +63,8 @@ class JSONApiTestingErrors: XCTestCase {
             return "articles"
         }
 
-        open var title: String? = "test"
-        open var body: String? = "body"
+        open var title: String = "test"
+        open var body: String = "body"
         var author: Author? {
             didSet {
                 if let author = self.author {
@@ -88,7 +75,7 @@ class JSONApiTestingErrors: XCTestCase {
             }
         }
         var authorId: String?
-        var location: CLLocationCoordinate2D?
+        var location: CLLocationCoordinate2D = CLLocationCoordinate2D()
         
         override public func register(attributes: inout [PSJSONAPIProperty], andRelationships relationships: inout [PSJSONAPIProperty]) {
             attributes.append(PSAttribute<String>(property: &self.body, jsonKey: "body"))

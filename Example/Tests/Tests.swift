@@ -2,7 +2,7 @@ import UIKit
 import XCTest
 import PersistentSwift
 import SwiftyJSON
-
+// swiftlint:disable:next type_body_length
 class Tests: XCTestCase {
 
     class Cache: PSModelCache<TestModel> {
@@ -66,7 +66,6 @@ class Tests: XCTestCase {
     }
     
     func testInOut() {
-       
 
         let test: () -> Void = {
             let t = Test()
@@ -84,7 +83,7 @@ class Tests: XCTestCase {
     }
 
     func testInOutString() {
-
+        // swiftlint:disable nesting
         class TestHolder {
             var pointer: UnsafeMutablePointer<String?>
 
@@ -139,7 +138,7 @@ class Tests: XCTestCase {
 
     func testCachedModels() {
 
-        var newModel = TestModel()
+        let newModel = TestModel()
         newModel.name = "test"
         newModel.isLive = false
         cache.addModelToCache(model: newModel)
@@ -269,7 +268,7 @@ class Tests: XCTestCase {
         model.name = "hello"
         
         cache.addModelToCache(model: model)
-        _ = cache.saveCacheInBackground().then { Void -> Void in
+        _ = cache.saveCacheInBackground().then { () -> Void in
             self.cache.clearCache()
             self.cache.loadCache()
             
@@ -298,9 +297,8 @@ class Tests: XCTestCase {
         XCTAssertEqual(cache.getModelsFromCache().count, 0)
     }
     
-    
     func testPSDataEventGetData() {
-        var model = TestModel()
+        let model = TestModel()
         model.id = "1"
         model.isLive = true
         model.name = "hello"
@@ -317,7 +315,6 @@ class Tests: XCTestCase {
         XCTAssertEqual(event4.getData(), nil)
         
     }
-    
     
     func testPSDataEventEventType() {
         let model = TestModel()
@@ -368,8 +365,7 @@ class Tests: XCTestCase {
         self.cache.addCallbackOnCacheChange(&callbackAdd)
         self.cache.addCallbackOnCacheChange(&callbackUpdate)
         self.cache.addCallbackOnCacheChange(&callbackDelete)
-        
-        
+    
         let model = TestModel()
         model.id = "jjjj"
         model.name = "hello"

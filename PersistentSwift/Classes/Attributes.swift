@@ -8,6 +8,7 @@
 
 import Foundation
 import SwiftyJSON
+import CoreLocation
 
 public protocol PSJSONAPIProperty: class {
     var jsonKey: String { get set }
@@ -31,7 +32,7 @@ public protocol PSJSONAPIWithGet: PSJSONAPIProperty {
 /// A basic attribute property (takes care of transforming from json to a swift object
 open class PSAttribute<T>: PSJSONAPIWithGet {
     
-    public typealias ValueType = T?
+    public typealias ValueType = T
     
     public var value: UnsafeMutablePointer<ValueType>
     
@@ -42,9 +43,9 @@ open class PSAttribute<T>: PSJSONAPIWithGet {
     /// - Parameters:
     ///   - property: a pointer to the property
     ///   - jsonKey: the name of the property in the JSON response
-    public init(property: inout T?, jsonKey: String) {
+    public init(property: inout T, jsonKey: String) {
         
-        self.value = UnsafeMutablePointer<T?>(&property);
+        self.value = UnsafeMutablePointer<T>(&property);
         self.jsonKey = jsonKey;
     }
     
@@ -60,7 +61,9 @@ open class PSAttribute<T>: PSJSONAPIWithGet {
     ///
     /// - Parameter json: the json from the request
     open func deserializeFromJSON(_ json: JSON) {
-        self.value.pointee = (json[self.jsonKey].rawValue as? T);
+        if let value = json[self.jsonKey].rawValue as? T {
+            self.value.pointee = value;
+        }
     }
     
     
@@ -72,6 +75,21 @@ open class PSAttribute<T>: PSJSONAPIWithGet {
         return self.value.pointee
     }
     
+    
+}
+
+
+open class PSLocationAttribute: PSAttribute<CLLocationCoordinate2D> {
+    
+    open override func serializeToJSON() -> Any? {
+        return [self.value.pointee.longitude, self.value.pointee.latitude]
+    }
+    
+    open override func deserializeFromJSON(_ json: JSON) {
+        if let value = json[self.jsonKey].array {
+            self.value.pointee = CLLocationCoordinate2D(latitude: value[0].doubleValue, longitude: value[1].doubleValue)
+        }
+    }
     
 }
 
