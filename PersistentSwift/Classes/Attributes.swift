@@ -13,17 +13,37 @@ import CoreLocation
 public protocol PSJSONAPIProperty: class {
     var jsonKey: String { get set }
     
-    
+    /// Any transforms necessary to turn the property into json
+    ///
+    /// - Returns: Any representation of the property
     func serializeToJSON() -> Any?
+    /// Any transforms necessary from the json to assing a value to the pointer
+    ///
+    /// - Parameter json: the json from the request
     func deserializeFromJSON(_ json: JSON)
+    /// Setup relationships that are included inside of the JSON response
+    ///
+    /// - Parameter json: the "included" dictionary inside of the json Response
+    func addFromIncluded(_ json: JSON)
     func decode(_ aDecoder: NSCoder)
 }
+
 
 public protocol PSJSONAPIWithGet: PSJSONAPIProperty {
     associatedtype ValueType
     
     var value: UnsafeMutablePointer<ValueType> { get set }
     
+}
+
+extension PSJSONAPIWithGet {
+    fileprivate func isModelNameEqual(json: JSON, modelType: PSJSONApiModel.Type) -> Bool {
+        return json["type"].string == modelType.modelName
+    }
+    
+    fileprivate func isIdEqual(json: JSON, value: PSJSONApiModel) -> Bool {
+        return json["id"].string == value.id
+    }
 }
 
 
@@ -76,6 +96,10 @@ open class PSAttribute<T>: PSJSONAPIWithGet {
     }
     
     
+    public func addFromIncluded(_ json: JSON) {
+        
+    }
+    
 }
 
 
@@ -97,11 +121,10 @@ open class PSLocationAttribute: PSAttribute<CLLocationCoordinate2D> {
 public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
     
     
-    
+    public typealias ModelType = T
     public typealias ValueType = T?
     
     public var value: UnsafeMutablePointer<ValueType>
-    public var id: UnsafeMutablePointer<String?>
     public var jsonKey: String = "";
     
     
@@ -111,9 +134,8 @@ public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
     ///   - property: a pointer to the property
     ///   - idProperty: a pointer to a property holding the id of the relationship object
     ///   - jsonKey: the name of the key in the json response
-    public init(property: inout T?, idProperty: inout String?, jsonKey: String) {
+    public init(property: inout T?, jsonKey: String) {
         self.value = UnsafeMutablePointer<ValueType>(&property);
-        self.id = UnsafeMutablePointer<String?>(&idProperty);
         self.jsonKey = jsonKey;
     }
     
@@ -134,23 +156,46 @@ public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
     ///
     /// - Returns: Any representation of the property
     public func serializeToJSON() -> Any? {
-        if let id = self.id.pointee {
-            var topLevel: [String: Any] = [:];
-            var data: [String: Any] = [:];
-            data["type"] = T.modelName;
-            data["id"] = id;
-            topLevel["data"] = data;
-            return topLevel;
-        } else {
-            return nil;
+        if let obj = self.value.pointee {
+            if obj.id != "" {
+                return self.setUpJsonForId(obj.id)
+            }
         }
+        return nil
+        
     }
+    
+    fileprivate func setUpJsonForId(_ id: String) -> Any? {
+        var topLevel: [String: Any] = [:];
+        var data: [String: Any] = [:];
+        data["type"] = T.modelName;
+        data["id"] = id;
+        topLevel["data"] = data;
+        return topLevel;
+        
+    }
+    
     /// Any transforms necessary from the json to assing a value to the pointer
     ///
     /// - Parameter json: the json from the request
     public func deserializeFromJSON(_ json: JSON) {
         if let id = json[jsonKey]["data"]["id"].string {
-            self.id.pointee = id;
+            let obj = ModelType()
+            obj.id = id
+            obj.isBlank = true
+            self.value.pointee = obj
+        }
+    }
+    
+    public func addFromIncluded(_ json: JSON) {
+        let json = json.arrayValue
+        for entry in json {
+            if let value = self.value.pointee {
+                if self.isIdEqual(json: entry, value: value) && self.isModelNameEqual(json: entry, modelType: ModelType.self) {
+                    let newObj = ModelType(json: entry, include: nil)
+                    self.value.pointee = newObj
+                }
+            }
         }
     }
     
@@ -160,11 +205,10 @@ public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
 /// Takes care of bridging to many relationships from swift to json
 public class PSToMany<T: PSJSONApiModel>: PSJSONAPIWithGet {
     
-    
-    public typealias ValueType = [T]?
+    public typealias ModelType = T
+    public typealias ValueType = [T]
     
     public var value: UnsafeMutablePointer<ValueType>
-    public var ids: UnsafeMutablePointer<[String]?>
     public var jsonKey: String = "";
     
     
@@ -174,9 +218,8 @@ public class PSToMany<T: PSJSONApiModel>: PSJSONAPIWithGet {
     /// - Parameters:
     ///   - property: a pointer to the property
     ///   - idProperty: a pointer to a property holding the id of the relationship object
-    public init(property: inout [T]?, idProperty: inout [String]?, jsonKey: String) {
-        self.value = UnsafeMutablePointer<[T]?>(&property);
-        self.ids = UnsafeMutablePointer<[String]?>(&idProperty);
+    public init(property: inout [T], jsonKey: String) {
+        self.value = UnsafeMutablePointer<[T]>(&property);
         self.jsonKey = jsonKey;
     }
     
@@ -185,15 +228,14 @@ public class PSToMany<T: PSJSONApiModel>: PSJSONAPIWithGet {
     public func serializeToJSON() -> Any? {
         var topLevel: [String: Any] = [:];
         var data: [[String: Any]] = [];
-        if let ids = self.ids.pointee {
-            for id in ids {
-                var d: [String: Any] = [:];
-                d["type"] = T.modelName;
-                d["id"] = id;
-                data.append(d);
-            }
+        let objs = self.value.pointee
+        for obj in objs {
+            let id = obj.id
+            var d: [String: Any] = [:];
+            d["type"] = T.modelName;
+            d["id"] = id;
+            data.append(d);
         }
-        
         topLevel["data"] = data;
         return topLevel
     }
@@ -202,16 +244,32 @@ public class PSToMany<T: PSJSONApiModel>: PSJSONAPIWithGet {
     
     public func deserializeFromJSON(_ json: JSON) {
         if let dataArray = json[self.jsonKey]["data"].array {
-            var ids: [String] = [];
+            var objs: [ModelType] = [];
             for data in dataArray {
                 if let i = data["id"].string {
-                    ids.append(i);
+                    let obj = ModelType()
+                    obj.id = i
+                    obj.isBlank = true
+                    objs.append(obj)
                 }
             }
-            self.ids.pointee = ids;
+            self.value.pointee = objs
         }
     }
     
+    public func addFromIncluded(_ json: JSON) {
+        let json = json.arrayValue
+        let values = self.value.pointee
+        for (o, value) in values.enumerated() {
+            for entry in json {
+                if self.isIdEqual(json: entry, value: value) && self.isModelNameEqual(json: entry, modelType: ModelType.self) {
+                    if let newObj = ModelType(json: entry, include: nil) {
+                        self.value.pointee[o] = newObj
+                    }
+                }
+            }
+        }
+    }
     
     public func decode(_ aDecoder: NSCoder) {
         if let value = aDecoder.decodeObject(forKey: self.jsonKey) as? [String: Any] {

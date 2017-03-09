@@ -20,8 +20,8 @@ extension Response {
 	/// If the conversion fails, the signal errors.
 	public func map<T:PSJSONApiModel>(to type: T.Type) throws -> T {
 		let jsonObject = try mapJSON()
-
-		guard let mappedObject = T(json: JSON(jsonObject)["data"]) else {
+        let json = JSON(jsonObject)
+        guard let mappedObject = T(json: json["data"], include: json["included"]) else {
 			throw MoyaError.jsonMapping(self)
 		}
 
@@ -32,10 +32,10 @@ extension Response {
 	/// If the conversion fails, the signal errors.
 	public func map<T:PSJSONApiModel>(to type: [T.Type]) throws -> [T] {
 		let jsonObject = try mapJSON()
-
-		let mappedArray = JSON(jsonObject)["data"];
+        let json = JSON(jsonObject)
+		let mappedArray = json["data"];
 		let mappedObjectsArray = mappedArray.arrayValue.flatMap {
-			T(json: $0)
+            T(json: $0, include: json["included"])
 		}
 
 		return mappedObjectsArray

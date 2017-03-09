@@ -47,12 +47,20 @@ class JSONApiTesting: XCTestCase {
 
     final class Author: PSJSONApiModel {
 
+        open var name: String = ""
+        open var age: Int = 0
+        open var gender: String = ""
+        open var articles: [Articles] = []
         override class var modelName: String {
             return "authors"
         }
 
         override func register(attributes: inout [PSJSONAPIProperty], andRelationships relationships: inout [PSJSONAPIProperty]) {
-
+            attributes.append(PSAttribute(property: &self.name, jsonKey: "name"))
+            attributes.append(PSAttribute(property: &self.age, jsonKey: "age"))
+            attributes.append(PSAttribute(property: &self.gender, jsonKey: "gender"))
+            
+            relationships.append(PSToMany(property: &self.articles, jsonKey: "articles"))
         }
 
     }
@@ -64,16 +72,7 @@ class JSONApiTesting: XCTestCase {
 
         open var title: String = "test"
         open var body: String = "body"
-        var author: Author? {
-            didSet {
-                if let author = self.author {
-                    self.authorId = author.id
-                    return
-                }
-                self.authorId = nil
-            }
-        }
-        var authorId: String?
+        var author: Author?
 
         var location: CLLocationCoordinate2D = CLLocationCoordinate2D()
 
@@ -81,14 +80,30 @@ class JSONApiTesting: XCTestCase {
             attributes.append(PSAttribute<String>(property: &self.body, jsonKey: "body"))
             attributes.append(PSAttribute<String>(property: &self.title, jsonKey: "title"))
             attributes.append(PSLocationAttribute(property: &self.location, jsonKey: "location"))
-            relationships.append(PSToOne<Author>(property: &self.author, idProperty: &self.authorId, jsonKey: "author"))
+            relationships.append(PSToOne<Author>(property: &self.author, jsonKey: "author"))
         }
 
     }
+    
+    class MultiAuthorPost: Articles {
+        var authors: [Author] = []
+        // swiftlint:disable:next line_length
+        override public func register(attributes: inout [PSJSONAPIProperty],
+                                      andRelationships relationships: inout [PSJSONAPIProperty]) {
+            
+            super.register(attributes: &attributes, andRelationships: &relationships)
+            let authorRelationship = PSToMany<Author>(property: &self.authors,
+                                                      jsonKey: "authors")
+            relationships.append(authorRelationship)
+            
+        }
+        
+    }
 
+    // swiftlint:disable line_length
     class ArticlesTestData: TestData {
         public static var getTestData: Data {
-            return "{\n  \"data\": {\n    \"type\": \"articles\",\n    \"id\": \"1\",\n    \"attributes\": {\n      \"title\": \"JSON API paints my bikeshed!\",\n      \"body\": \"The shortest article. Ever.\",\n      \"created\": \"2015-05-22T14:56:29.000Z\",\n      \"updated\": \"2015-05-22T14:56:28.000Z\"\n    },\n    \"relationships\": {\n      \"author\": {\n        \"data\": {\"id\": \"42\", \"type\": \"people\"}\n      }\n    }\n  },\n  \"included\": [\n    {\n      \"type\": \"people\",\n      \"id\": \"42\",\n      \"attributes\": {\n        \"name\": \"John\",\n        \"age\": 80,\n        \"gender\": \"male\"\n      }\n    }\n  ]\n}".data(using: String.Encoding.utf8)!
+            return "{\n  \"data\": {\n    \"type\": \"articles\",\n    \"id\": \"1\",\n    \"attributes\": {\n      \"title\": \"JSON API paints my bikeshed!\",\n      \"body\": \"The shortest article. Ever.\",\n      \"created\": \"2015-05-22T14:56:29.000Z\",\n      \"updated\": \"2015-05-22T14:56:28.000Z\"\n    },\n    \"relationships\": {\n      \"author\": {\n        \"data\": {\"id\": \"42\", \"type\": \"people\"}\n      },\n \"authors\": {\n        \"data\": [{\"id\": \"42\", \"type\": \"people\"}, {\"id\": \"43\", \"type\": \"people\"}, {\"id\": \"44\", \"type\": \"people\"}]\n      }\n     }\n  },\n  \"included\": [\n    {\n      \"type\": \"authors\",\n      \"id\": \"42\",\n      \"attributes\": {\n        \"name\": \"John\",\n        \"age\": 80,\n        \"gender\": \"male\"\n      }\n    }\n, {\n      \"type\": \"authors\",\n      \"id\": \"43\",\n      \"attributes\": {\n        \"name\": \"Joe\",\n        \"age\": 80,\n        \"gender\": \"male\"\n      }\n    }\n, {\n      \"type\": \"authors\",\n      \"id\": \"44\",\n      \"attributes\": {\n        \"name\": \"Jack\",\n        \"age\": 80,\n        \"gender\": \"male\"\n      }\n    }\n,  ]\n}".data(using: String.Encoding.utf8)!
         }
 
         public static var getListPaginatedTestData: Data {
@@ -120,6 +135,11 @@ class JSONApiTesting: XCTestCase {
 
     }
 
+    class MultiAuthorArticleNetworkManager: PSNetworkManager<MultiAuthorPost, ArticlesTestData, ArticleSettings> {
+        static var shared: MultiAuthorArticleNetworkManager = MultiAuthorArticleNetworkManager()
+        
+    }
+    
     override func setUp() {
         super.setUp()
         // Put setup code here. This method is called before the invocation of each test method in the class.
@@ -166,9 +186,52 @@ class JSONApiTesting: XCTestCase {
         _ = ArticlesNetworkManager.shared.getObject(obj: article).then(execute: { art -> Void in
             XCTAssertEqual(art.title, "JSON API paints my bikeshed!")
             XCTAssertEqual(art.body, "The shortest article. Ever.")
+            XCTAssertEqual(art.author?.id, "42")
             exp.fulfill()
         })
         self.waitForExpectations(timeout: 1.5, handler: nil)
+    }
+    func testGetSingleRequestWithToManyRelation() {
+        let exp = self.expectation(description: "will get single object")
+        let article = MultiAuthorPost()
+        article.id = "test"
+        _ = MultiAuthorArticleNetworkManager.shared.getObject(obj: article).then(execute: { art -> Void in
+            XCTAssertEqual(art.title, "JSON API paints my bikeshed!")
+            XCTAssertEqual(art.body, "The shortest article. Ever.")
+            XCTAssertEqual(art.author?.id, "42")
+            XCTAssertEqual(art.authors.count, 3)
+            exp.fulfill()
+        })
+        self.waitForExpectations(timeout: 1000, handler: nil)
+    }
+    
+    func testGetSingleRequestIncludeToOne() {
+        let exp = self.expectation(description: "will get single object")
+        let article = Articles()
+        article.id = "test"
+        _ = ArticlesNetworkManager.shared.getObject(obj: article).then(execute: { art -> Void in
+            XCTAssertEqual(art.author?.name, "John")
+            XCTAssertEqual(art.author?.age, 80)
+            XCTAssertEqual(art.author?.gender, "male")
+            XCTAssertEqual(art.author?.isBlank, false)
+            exp.fulfill()
+        })
+        self.waitForExpectations(timeout: 1000, handler: nil)
+    }
+    
+    func testGetSingleRequestIncludeToMany() {
+        let exp = self.expectation(description: "will get single object")
+        let article = MultiAuthorPost()
+        article.id = "test"
+        _ = MultiAuthorArticleNetworkManager.shared.getObject(obj: article).then(execute: { art -> Void in
+            XCTAssertEqual(art.authors.count, 3)
+            XCTAssertEqual(art.authors[0].name, "John")
+            XCTAssertEqual(art.authors[0].isBlank, false)
+            XCTAssertEqual(art.authors[1].name, "Joe")
+            XCTAssertEqual(art.authors[2].name, "Jack")
+            exp.fulfill()
+        })
+        self.waitForExpectations(timeout: 1000, handler: nil)
     }
     
     func testGetPaginatedListWithParams() {
@@ -226,36 +289,7 @@ class JSONApiTesting: XCTestCase {
     }
 
     func testCreatingPostMultiRelationshipParams() {
-        // swiftlint:disable:next nesting
-        class MultiAuthorPost: Articles {
-            var authors: [Author]? = [] {
-                didSet {
-                    if let authors = self.authors {
-                        var ids: [String] = []
-                        for author in authors {
-                            ids.append(author.id)
-                        }
-                        self.authorsIds = ids
-                        return
-                    }
-                    self.authorsIds = nil
-                }
-            }
-            var authorsIds: [String]?
-            // swiftlint:disable:next line_length
-            override public func register(attributes: inout [PSJSONAPIProperty],
-                                          andRelationships relationships: inout [PSJSONAPIProperty]) {
-                
-                super.register(attributes: &attributes, andRelationships: &relationships)
-                let authorRelationship = PSToMany<Author>(property: &self.authors,
-                                                          idProperty: &self.authorsIds,
-                                                          jsonKey: "authors")
-                relationships.append(authorRelationship)
-
-            }
-
-        }
-
+       
         let article = MultiAuthorPost()
         article.title = "test title"
         article.body = "test body"
@@ -292,7 +326,7 @@ class JSONApiTesting: XCTestCase {
         author.id = "test id"
         article.author = author
         ArticlesNetworkManager.shared.updateObject(obj: article).then(execute: { article -> Void in
-            XCTAssertEqual(article.authorId, "test id")
+            XCTAssertEqual(article.author?.id, "test id")
             XCTAssertEqual(article.title, "test title")
             XCTAssertEqual(article.body, "test body")
             exp.fulfill()
@@ -312,7 +346,7 @@ class JSONApiTesting: XCTestCase {
         article.author = author
 
         ArticlesNetworkManager.shared.saveNewObject(obj: article).then(execute: { article -> Void in
-            XCTAssertEqual(article.authorId, "test id")
+            XCTAssertEqual(article.author?.id, "test id")
             XCTAssertEqual(article.title, "test title")
             XCTAssertEqual(article.body, "test body")
             exp.fulfill()

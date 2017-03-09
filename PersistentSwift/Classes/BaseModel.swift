@@ -22,12 +22,13 @@ open class PSJSONApiModel: NSObject, NSCoding, PSCachedModel {
     }
     
     public var id: String = "";
-    
+    /// is true if the object wasn't included in the API response and just contains the id
+    public var isBlank: Bool = false
     
     var attributes: [PSJSONAPIProperty] = [];
     var relationships: [PSJSONAPIProperty] = [];
     
-    override public init() {
+    required override public init() {
         super.init();
         self.register(attributes: &self.attributes, andRelationships: &self.relationships);
     }
@@ -37,7 +38,7 @@ open class PSJSONApiModel: NSObject, NSCoding, PSCachedModel {
     }
     
     
-    public required convenience init?(json: JSON) {
+    public required convenience init?(json: JSON, include: JSON?) {
         self.init();
         
         if let id = json["id"].string {
@@ -52,7 +53,12 @@ open class PSJSONApiModel: NSObject, NSCoding, PSCachedModel {
         for relationship in self.relationships {
             relationship.deserializeFromJSON(rel);
         }
-        
+        if let incl = include {
+            
+            for relationships in self.relationships {
+                relationships.addFromIncluded(incl)
+            }
+        }
     }
     
     public required convenience init(coder aDecoder: NSCoder) {

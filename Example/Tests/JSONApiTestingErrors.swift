@@ -65,23 +65,14 @@ class JSONApiTestingErrors: XCTestCase {
 
         open var title: String = "test"
         open var body: String = "body"
-        var author: Author? {
-            didSet {
-                if let author = self.author {
-                    self.authorId = author.id
-                    return
-                }
-                self.authorId = nil
-            }
-        }
-        var authorId: String?
+        lazy var author: Author? = Author()
         var location: CLLocationCoordinate2D = CLLocationCoordinate2D()
         
         override public func register(attributes: inout [PSJSONAPIProperty], andRelationships relationships: inout [PSJSONAPIProperty]) {
             attributes.append(PSAttribute<String>(property: &self.body, jsonKey: "body"))
             attributes.append(PSAttribute<String>(property: &self.title, jsonKey: "title"))
             attributes.append(PSLocationAttribute(property: &self.location, jsonKey: "location"))
-            relationships.append(PSToOne<Author>(property: &self.author, idProperty: &self.authorId, jsonKey: "author"))
+            relationships.append(PSToOne<Author>(property: &self.author, jsonKey: "author"))
         }
     }
     

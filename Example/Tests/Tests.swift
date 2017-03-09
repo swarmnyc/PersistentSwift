@@ -15,10 +15,8 @@ class Tests: XCTestCase {
         override class var modelName: String {
             return "Test Model"
         }
-        var relToManyId: [String]?
-        var relToMany: [TestModel]?
+        var relToMany: [TestModel] = []
 
-        var relToOneId: String?
         var relToOne: TestModel?
 
         var name: String?
@@ -29,8 +27,8 @@ class Tests: XCTestCase {
             attributes.append(PSAttribute(property: &self.isLive, jsonKey: "isLive"))
 
             //swiftlint:disable:next line_length
-            relationships.append(PSToMany(property: &self.relToMany, idProperty: &self.relToManyId, jsonKey: "relToMany"))
-            relationships.append(PSToOne(property: &self.relToOne, idProperty: &self.relToOneId, jsonKey: "relToOne"))
+            relationships.append(PSToMany(property: &self.relToMany, jsonKey: "relToMany"))
+            relationships.append(PSToOne(property: &self.relToOne, jsonKey: "relToOne"))
         }
 
     }
@@ -133,9 +131,6 @@ class Tests: XCTestCase {
 
     }
 
-    //
-    //
-
     func testCachedModels() {
 
         let newModel = TestModel()
@@ -143,8 +138,17 @@ class Tests: XCTestCase {
         newModel.isLive = false
         cache.addModelToCache(model: newModel)
 
-        newModel.relToOneId = "test"
-        newModel.relToManyId = ["test1, test2"]
+        let relToOneModel = TestModel()
+        relToOneModel.id = "test"
+        newModel.relToOne = relToOneModel
+        
+        let testModel = TestModel()
+        testModel.id = "test1"
+        
+        let testModel2 = TestModel()
+        testModel2.id = "test2"
+        
+        newModel.relToMany = [testModel, testModel2]
 
         let data = NSKeyedArchiver.archivedData(withRootObject: newModel)
 
@@ -154,8 +158,8 @@ class Tests: XCTestCase {
             if let objs = NSKeyedUnarchiver.unarchiveObject(with: dataFromCache) as? TestModel {
                 XCTAssertEqual(newModel.name, objs.name)
                 XCTAssertEqual(newModel.isLive, objs.isLive)
-                XCTAssertEqual(newModel.relToOneId, objs.relToOneId)
-                XCTAssertEqual(newModel.relToManyId!, objs.relToManyId!)
+                XCTAssertEqual(newModel.relToOne?.id, objs.relToOne?.id)
+                XCTAssertEqual(newModel.relToMany.count, objs.relToMany.count)
             } else {
                 XCTAssert(false)
             }
