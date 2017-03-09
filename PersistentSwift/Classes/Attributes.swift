@@ -24,7 +24,7 @@ public protocol PSJSONAPIProperty: class {
     /// Setup relationships that are included inside of the JSON response
     ///
     /// - Parameter json: the "included" dictionary inside of the json Response
-    func addFromIncluded(_ json: JSON)
+    func addFromIncluded(_ json: JSON, objStore: PSServiceModelStore)
     func decode(_ aDecoder: NSCoder)
 }
 
@@ -96,7 +96,7 @@ open class PSAttribute<T>: PSJSONAPIWithGet {
     }
     
     
-    public func addFromIncluded(_ json: JSON) {
+    public func addFromIncluded(_ json: JSON, objStore: PSServiceModelStore) {
         
     }
     
@@ -187,17 +187,25 @@ public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
         }
     }
     
-    public func addFromIncluded(_ json: JSON) {
+    public func addFromIncluded(_ json: JSON, objStore: PSServiceModelStore) {
         let json = json.arrayValue
-        for entry in json {
-            if let value = self.value.pointee {
+        if let value = self.value.pointee {
+            if let obj: ModelType = objStore.getObj(byId: value.id) {
+                self.value.pointee = obj
+                return
+            }
+            for entry in json {
                 if self.isIdEqual(json: entry, value: value) && self.isModelNameEqual(json: entry, modelType: ModelType.self) {
-                    let newObj = ModelType(json: entry, include: nil)
+                    let newObj = ModelType(json: entry, include: nil, objStore: objStore)
                     self.value.pointee = newObj
+                    if let newObj = newObj {
+                        objStore.addObj(newObj)
+                    }
                 }
             }
         }
     }
+    
     
     
 }
@@ -257,14 +265,19 @@ public class PSToMany<T: PSJSONApiModel>: PSJSONAPIWithGet {
         }
     }
     
-    public func addFromIncluded(_ json: JSON) {
+    public func addFromIncluded(_ json: JSON, objStore: PSServiceModelStore) {
         let json = json.arrayValue
         let values = self.value.pointee
         for (o, value) in values.enumerated() {
+            if let obj: T = objStore.getObj(byId: value.id) {
+                self.value.pointee[o] = obj
+                continue
+            }
             for entry in json {
                 if self.isIdEqual(json: entry, value: value) && self.isModelNameEqual(json: entry, modelType: ModelType.self) {
-                    if let newObj = ModelType(json: entry, include: nil) {
+                    if let newObj = ModelType(json: entry, include: nil, objStore: objStore) {
                         self.value.pointee[o] = newObj
+                        objStore.addObj(newObj)
                     }
                 }
             }

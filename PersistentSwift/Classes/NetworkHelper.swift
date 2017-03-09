@@ -18,10 +18,11 @@ extension Response {
 
 	/// Maps data received from the signal into an object which implements the ALSwiftyJSONAble protocol.
 	/// If the conversion fails, the signal errors.
-	public func map<T:PSJSONApiModel>(to type: T.Type) throws -> T {
+    func map<T:PSJSONApiModel>(to type: T.Type) throws -> T {
+        let objStore: PSServiceModelStore = PSServiceModelStore()
 		let jsonObject = try mapJSON()
         let json = JSON(jsonObject)
-        guard let mappedObject = T(json: json["data"], include: json["included"]) else {
+        guard let mappedObject = T(json: json["data"], include: json["included"], objStore: objStore) else {
 			throw MoyaError.jsonMapping(self)
 		}
 
@@ -30,12 +31,13 @@ extension Response {
 
 	/// Maps data received from the signal into an array of objects which implement the ALSwiftyJSONAble protocol
 	/// If the conversion fails, the signal errors.
-	public func map<T:PSJSONApiModel>(to type: [T.Type]) throws -> [T] {
+    func map<T:PSJSONApiModel>(to type: [T.Type]) throws -> [T] {
+        let objStore: PSServiceModelStore = PSServiceModelStore()
 		let jsonObject = try mapJSON()
         let json = JSON(jsonObject)
 		let mappedArray = json["data"];
 		let mappedObjectsArray = mappedArray.arrayValue.flatMap {
-            T(json: $0, include: json["included"])
+            T(json: $0, include: json["included"], objStore: objStore)
 		}
 
 		return mappedObjectsArray

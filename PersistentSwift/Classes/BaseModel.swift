@@ -38,7 +38,7 @@ open class PSJSONApiModel: NSObject, NSCoding, PSCachedModel {
     }
     
     
-    public required convenience init?(json: JSON, include: JSON?) {
+    public required convenience init?(json: JSON, include: JSON?, objStore: PSServiceModelStore) {
         self.init();
         
         if let id = json["id"].string {
@@ -56,7 +56,7 @@ open class PSJSONApiModel: NSObject, NSCoding, PSCachedModel {
         if let incl = include {
             
             for relationships in self.relationships {
-                relationships.addFromIncluded(incl)
+                relationships.addFromIncluded(incl, objStore: objStore)
             }
         }
     }

@@ -71,7 +71,21 @@ struct TestSettings: PSServiceSettings {
 
 
 
-
+public class PSServiceModelStore {
+    internal var objStore: [String: [String: PSJSONApiModel]] = [:]
+    
+    func addObj<T: PSJSONApiModel>(_ obj: T) {
+        if self.objStore[T.modelName] == nil {
+            self.objStore[T.modelName] = [:]
+        }
+        self.objStore[T.modelName]?[obj.id] = obj
+    }
+    
+    func getObj<T: PSJSONApiModel>(byId id: String) -> T? {
+        return self.objStore[T.modelName]?[id] as? T
+    }
+    
+}
 
 
 
@@ -84,7 +98,6 @@ public class PSService<T:PSJSONApiModel, D: TestData, S: PSServiceSettings> {
 	//the actual object used to make the requests
 	lazy var provider: MoyaProvider<PSServiceMap<T, D, S>> = self.getProvider();
 	var authToken: String?
-
     
 	/// get a MoyaProvider to make API calls
 	func getProvider() -> MoyaProvider<PSServiceMap<T, D, S>> {
