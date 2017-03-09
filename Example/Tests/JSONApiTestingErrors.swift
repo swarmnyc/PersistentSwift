@@ -95,7 +95,7 @@ class JSONApiTestingErrors: XCTestCase {
         
     }
     
-    class ArticlesNetworkManager: JSONAPIService<Articles, ArticleSettings> {
+    class ArticlesNetworkManager: JSONAPIService<ArticleSettings> {
         static var shared: ArticlesNetworkManager = ArticlesNetworkManager()
         
     }

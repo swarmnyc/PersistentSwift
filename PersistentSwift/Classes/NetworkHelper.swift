@@ -46,9 +46,14 @@ extension Response {
 }
 
 
-public struct AuthPlugin<T:PSJSONApiModel, D:TestData, S: JSONAPIServiceSettings>: PluginType {
-	public let tokenClosure: ((JSONAPITargetType<T,S>) -> String?)
+open class AuthPlugin<T:PSJSONApiModel, S: JSONAPIServiceSettings>: PluginType {
+	public var tokenClosure: ((JSONAPITargetType<T,S>) -> String?)
 
+    public init(tokenClosure: @escaping ((JSONAPITargetType<T, S>) -> String?)) {
+        self.tokenClosure = tokenClosure
+    }
+    
+    
 	public func prepare(_ request: URLRequest, target: TargetType) -> URLRequest {
 
 		if let token = tokenClosure(target as! JSONAPITargetType<T,S>) {

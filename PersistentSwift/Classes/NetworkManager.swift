@@ -13,31 +13,19 @@ import Moya
 
 
 //Generic Network Manager
-open class JSONAPIService<T: PSJSONApiModel, S: JSONAPIServiceSettings> {
+open class JSONAPIService<Settings: JSONAPIServiceSettings> {
     
-    
+    typealias T = Settings.ModelType
+    typealias S = Settings.Settings
     
     
     public typealias APIMap = JSONAPITargetType<T, S>;
     
     
     //the actual object used to make the requests
-    lazy var provider: MoyaProvider<JSONAPITargetType<T, S>> = self.getProvider();
-    
-    /// get a MoyaProvider to make API calls
-    func getProvider() -> MoyaProvider<JSONAPITargetType<T, S>> {
-        let provider = MoyaProvider<JSONAPITargetType<T, S>>(stubClosure: {
-            _ in
-            if T.shouldStubJson {
-                return .immediate;
-            } else {
-                return .never
-            }
-        }, plugins: S.plugins
-        )
-        return provider;
+    var provider: MoyaProvider<JSONAPITargetType<T, S>> {
+        return Settings.provider as! MoyaProvider<JSONAPITargetType<T, S>>
     }
-    
     
     public init() {
     }

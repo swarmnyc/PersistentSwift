@@ -13,11 +13,11 @@ import Alamofire
 
 
 
-public struct TimeoutPlugin<T:PSJSONApiModel, S: JSONAPIServiceSettings>: PluginType {
+open class TimeoutPlugin<T:PSJSONApiModel, S: JSONAPIServiceSettings>: PluginType {
     
     var timeoutGetter: ((JSONAPITargetType<T,S>) -> Double)?
     
-    init(timeoutGetter: ((JSONAPITargetType<T,S>) -> Double)?) {
+    public init(timeoutGetter: ((JSONAPITargetType<T,S>) -> Double)?) {
         self.timeoutGetter = timeoutGetter
     }
     
@@ -34,20 +34,30 @@ public struct TimeoutPlugin<T:PSJSONApiModel, S: JSONAPIServiceSettings>: Plugin
 }
 
 
-
-public protocol JSONAPIServiceSettings {
+public protocol BaseJSONAPIServiceSettings {
     static var baseUrl: String { get }
-    static var plugins: [PluginType] { get }
+}
+
+public protocol JSONAPIServiceSettings: BaseJSONAPIServiceSettings {
+    associatedtype ModelType: PSJSONApiModel
+    associatedtype Settings: BaseJSONAPIServiceSettings
+    
+    static var provider: MoyaProvider<JSONAPITargetType<ModelType, Settings>> { get set }
 }
 
 
 
 struct TestSettings: JSONAPIServiceSettings {
+    public static var provider: MoyaProvider<JSONAPITargetType<PSJSONApiModel, TestSettings>> = TestSettings.getMoyaProvider()
     
-    public static var subbedJSONRequests: TestData.Type {
-        return NoTestData.self
+    public static func getMoyaProvider() -> MoyaProvider<JSONAPITargetType<PSJSONApiModel, TestSettings>> {
+        return MoyaProvider()
     }
+    
 
+    typealias ModelType = PSJSONApiModel
+    typealias Settings = TestSettings
+    
     static var baseUrl: String {
         return "";
     }
@@ -103,7 +113,7 @@ open class Query {
 }
 
 
-public enum JSONAPITargetType<T: PSJSONApiModel, S: JSONAPIServiceSettings> {
+public enum JSONAPITargetType<T: PSJSONApiModel, S: BaseJSONAPIServiceSettings> {
     case get(query: Query)
     case createObject(obj: T)
     case updateObject(obj: T)

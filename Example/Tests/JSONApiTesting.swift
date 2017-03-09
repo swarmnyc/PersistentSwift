@@ -17,11 +17,28 @@ import Moya
 //swiftlint:disable type_body_length
 class JSONApiTesting: XCTestCase {
     public struct ArticleSettings: JSONAPIServiceSettings {
+        typealias ModelType = Articles
+        typealias Settings = ArticleSettings
+        
+        static var provider: MoyaProvider<JSONAPITargetType<JSONApiTesting.Articles, JSONApiTesting.ArticleSettings>> = MoyaProvider()
+        
         static var baseUrl: String {
             return "http://google.com/"
         }
         public static var plugins: [PluginType] {
-            return  []
+            return [self.getAuthPlugin(),
+                    self.getTimeoutPlugin(),
+                    NetworkLoggerPlugin(verbose: true)]
+        }
+        public static func getAuthPlugin() -> AuthPlugin<Articles, ArticleSettings> {
+            return AuthPlugin(tokenClosure: { _ in
+                return nil
+            })
+        }
+        public static func getTimeoutPlugin() -> TimeoutPlugin<Articles, ArticleSettings> {
+            return TimeoutPlugin(timeoutGetter: { _ in
+                return 14
+            })
         }
     }
     final class Author: PSJSONApiModel {
@@ -113,12 +130,12 @@ class JSONApiTesting: XCTestCase {
 
     }
 
-    class ArticlesNetworkManager: JSONAPIService<Articles, ArticleSettings> {
+    class ArticlesNetworkManager: JSONAPIService<ArticleSettings> {
         static var shared: ArticlesNetworkManager = ArticlesNetworkManager()
 
     }
 
-    class MultiAuthorArticleNetworkManager: JSONAPIService<MultiAuthorPost, ArticleSettings> {
+    class MultiAuthorArticleNetworkManager: JSONAPIService<ArticleSettings> {
         static var shared: MultiAuthorArticleNetworkManager = MultiAuthorArticleNetworkManager()
     }
     override func setUp() {
