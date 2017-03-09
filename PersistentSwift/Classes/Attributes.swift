@@ -268,15 +268,15 @@ public class PSToMany<T: PSJSONApiModel>: PSJSONAPIWithGet {
     public func addFromIncluded(_ json: JSON, objStore: PSServiceModelStore) {
         let json = json.arrayValue
         let values = self.value.pointee
-        for (o, value) in values.enumerated() {
+        for (i, value) in values.enumerated() {
             if let obj: T = objStore.getObj(byId: value.id) {
-                self.value.pointee[o] = obj
+                self.value.pointee[i] = obj
                 continue
             }
             for entry in json {
                 if self.isIdEqual(json: entry, value: value) && self.isModelNameEqual(json: entry, modelType: ModelType.self) {
                     if let newObj = ModelType(json: entry, include: nil, objStore: objStore) {
-                        self.value.pointee[o] = newObj
+                        self.value.pointee[i] = newObj
                         objStore.addObj(newObj)
                     }
                 }
