@@ -14,7 +14,7 @@ public protocol PSCachedModel {
     var id: String { get set }
 }
 
-open class PSJSONApiModel: NSObject, NSCoding, PSCachedModel {
+open class JsonApiModel: NSObject, NSCoding, PSCachedModel {
     
     open class var modelName: String {
         assertionFailure("You did not override modelName in a PSJSONApiModel");

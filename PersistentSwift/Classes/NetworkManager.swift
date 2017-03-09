@@ -10,12 +10,12 @@ import Foundation
 import PromiseKit
 
 //Generic Network Manager
-open class PSNetworkManager<T: PSJSONApiModel, TestingData: TestData, S: PSServiceSettings> {
+open class PSNetworkManager<T:JsonApiModel, TestingData: TestData, S: PSServiceSettings> {
     
-    public typealias APIMap = PSServiceMap<T, TestingData, S>;
+    public typealias APIMap = JsonApiTargetType<T, TestingData, S>;
     
-    lazy var service: PSService<T, TestingData, S> = {
-        return PSService<T, TestingData, S>()
+    lazy var service: JsonApiService<T, TestingData, S> = {
+        return JsonApiService<T, TestingData, S>()
     }()
     
     public init() {
@@ -64,7 +64,7 @@ open class PSNetworkManager<T: PSJSONApiModel, TestingData: TestData, S: PSServi
     ///
     /// - Returns: A promise with an array of objects
     open func getListOfObjects() -> Promise<[T]> {
-        let request = APIMap.getList;
+        let request = APIMap.getList();
         return service.makeRequestArray(request);
     }
     
@@ -73,7 +73,7 @@ open class PSNetworkManager<T: PSJSONApiModel, TestingData: TestData, S: PSServi
     /// - Parameter params: The query parameters
     /// - Returns: A promise with an array of objects
     open func getListOfObjects(params: [String: Any]) -> Promise<[T]> {
-        let request = APIMap.getListWith(params: params);
+        let request = APIMap.getList()
         return service.makeRequestArray(request);
     }
     
@@ -86,7 +86,7 @@ open class PSNetworkManager<T: PSJSONApiModel, TestingData: TestData, S: PSServi
     ///   - params: query params to append to the request
     /// - Returns: A promise with an array of objects
     open func getPaginatedList(page: Int, limit: Int, params: [String: Any]) -> Promise<[T]> {
-        let request = APIMap.getListPaginated(page: page, limit: limit, params: params);
+        let request = APIMap.getList()
         return service.makeRequestArray(request);
     }
     

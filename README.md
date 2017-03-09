@@ -156,7 +156,7 @@ open class PSDateAttribute: PSAttribute<Date> {
         }
         
         //you can set a different timeout based on which request is being sent
-        static func getTimeout<Model : PSJSONApiModel, TestD : TestData, S : PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> Double {
+        static func getTimeout<Model : PSJSONApiModel, TestD : TestData, S : PSServiceSettings>(_ target: JsonApiTargetType<Model, TestD, S>) -> Double {
             switch target {
             case .createObject( _):
                 return 4;
@@ -168,7 +168,7 @@ open class PSDateAttribute: PSAttribute<Date> {
         }
         
         //use the type of request to determine which API token, if any should be sent up
-        static func getAuthToken<Model : PSJSONApiModel, TestD : TestData, S : PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> String? {
+        static func getAuthToken<Model : PSJSONApiModel, TestD : TestData, S : PSServiceSettings>(_ target: JsonApiTargetType<Model, TestD, S>) -> String? {
             return nil;
         }
     }

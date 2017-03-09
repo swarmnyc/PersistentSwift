@@ -30,23 +30,21 @@ class JSONApiTestingErrors: XCTestCase {
             return true
         }
         
-        static func getTimeout<Model: PSJSONApiModel, TestD: TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> Double {
+        static func getTimeout<Model:JsonApiModel, TestD: TestData, S: PSServiceSettings>(_ target: JsonApiTargetType<Model, TestD, S>) -> Double {
             switch target {
             case .createObject( _):
                 return 4
-            case .getListPaginated( _):
-                return 5
             default:
                 return 12
             }
         }
         
-        static func getAuthToken<Model: PSJSONApiModel, TestD: TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> String? {
+        static func getAuthToken<Model:JsonApiModel, TestD: TestData, S: PSServiceSettings>(_ target: JsonApiTargetType<Model, TestD, S>) -> String? {
             return nil
         }
     }
     
-    final class Author: PSJSONApiModel {
+    final class Author: JsonApiModel {
         
         override class var modelName: String {
             return "authors"
@@ -57,7 +55,7 @@ class JSONApiTestingErrors: XCTestCase {
         }
         
     }
-    public class Articles: PSJSONApiModel {
+    public class Articles: JsonApiModel {
         
         override class var modelName: String {
             return "articles"

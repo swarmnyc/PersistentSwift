@@ -10,7 +10,7 @@ class Tests: XCTestCase {
     }
     var cache = Cache()
 
-    class TestModel: PSJSONApiModel {
+    class TestModel: JsonApiModel {
 
         override class var modelName: String {
             return "Test Model"

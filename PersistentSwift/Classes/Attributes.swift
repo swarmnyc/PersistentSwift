@@ -37,11 +37,11 @@ public protocol PSJSONAPIWithGet: PSJSONAPIProperty {
 }
 
 extension PSJSONAPIWithGet {
-    fileprivate func isModelNameEqual(json: JSON, modelType: PSJSONApiModel.Type) -> Bool {
+    fileprivate func isModelNameEqual(json: JSON, modelType: JsonApiModel.Type) -> Bool {
         return json["type"].string == modelType.modelName
     }
     
-    fileprivate func isIdEqual(json: JSON, value: PSJSONApiModel) -> Bool {
+    fileprivate func isIdEqual(json: JSON, value: JsonApiModel) -> Bool {
         return json["id"].string == value.id
     }
 }
@@ -118,7 +118,7 @@ open class PSLocationAttribute: PSAttribute<CLLocationCoordinate2D> {
 }
 
 /// Takes care of bridging to one relationships from swift to json
-public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
+public class PSToOne<T:JsonApiModel>: PSJSONAPIWithGet {
     
     
     public typealias ModelType = T
@@ -211,7 +211,7 @@ public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
 }
 
 /// Takes care of bridging to many relationships from swift to json
-public class PSToMany<T: PSJSONApiModel>: PSJSONAPIWithGet {
+public class PSToMany<T:JsonApiModel>: PSJSONAPIWithGet {
     
     public typealias ModelType = T
     public typealias ValueType = [T]

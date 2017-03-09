@@ -29,23 +29,22 @@ class JSONApiTesting: XCTestCase {
             return true
         }
 
-        static func getTimeout<Model: PSJSONApiModel, TestD: TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> Double {
+        static func getTimeout<Model:JsonApiModel, TestD: TestData, S: PSServiceSettings>(_ target: JsonApiTargetType<Model, TestD, S>) -> Double {
             switch target {
             case .createObject( _):
                 return 4
-            case .getListPaginated( _):
-                return 5
+
             default:
                 return 12
             }
         }
 
-        static func getAuthToken<Model: PSJSONApiModel, TestD: TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> String? {
+        static func getAuthToken<Model:JsonApiModel, TestD: TestData, S: PSServiceSettings>(_ target: JsonApiTargetType<Model, TestD, S>) -> String? {
             return nil
         }
     }
 
-    final class Author: PSJSONApiModel {
+    final class Author: JsonApiModel {
 
         open var name: String = ""
         open var age: Int = 0
@@ -64,7 +63,7 @@ class JSONApiTesting: XCTestCase {
         }
 
     }
-    public class Articles: PSJSONApiModel {
+    public class Articles: JsonApiModel {
 
         override class var modelName: String {
             return "articles"
@@ -251,14 +250,14 @@ class JSONApiTesting: XCTestCase {
     }
     
     func testPaginatedParams() {
-        typealias APIMap = PSServiceMap<Articles, ArticlesTestData, ArticleSettings>
-        let paginatedParams = APIMap.getListPaginated(page: 2, limit: 10, params: ["test": "test"])
+        typealias APIMap = JsonApiTargetType<Articles, ArticlesTestData, ArticleSettings>
+//        let paginatedParams = APIMap.getListPaginated(page: 2, limit: 10, params: ["test": "test"])
         // swiftlint:disable:next force_cast
-        XCTAssertEqual((paginatedParams.parameters!["page"] as! Int), 2)
+//        XCTAssertEqual((paginatedParams.parameters!["page"] as! Int), 2)
         // swiftlint:disable:next force_cast
-        XCTAssertEqual((paginatedParams.parameters!["per_page"] as! Int), 10)
+//        XCTAssertEqual((paginatedParams.parameters!["per_page"] as! Int), 10)
         // swiftlint:disable:next force_cast
-        XCTAssertEqual((paginatedParams.parameters!["test"] as! String), "test")
+//        XCTAssertEqual((paginatedParams.parameters!["test"] as! String), "test")
 
     }
 
