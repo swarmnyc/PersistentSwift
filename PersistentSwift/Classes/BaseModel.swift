@@ -21,6 +21,13 @@ open class PSJSONApiModel: NSObject, NSCoding, PSCachedModel {
         return "";
     }
     
+    open class var testData: TestData.Type {
+        return NoTestData.self
+    }
+    open class var shouldStubJson: Bool {
+        return false
+    }
+    
     public var id: String = "";
     /// is true if the object wasn't included in the API response and just contains the id
     public var isBlank: Bool = false
@@ -38,7 +45,7 @@ open class PSJSONApiModel: NSObject, NSCoding, PSCachedModel {
     }
     
     
-    public required convenience init?(json: JSON, include: JSON?, objStore: PSServiceModelStore) {
+    public required convenience init?(json: JSON, include: JSON?, objStore: JSONAPIServiceModelStore) {
         self.init();
         
         if let id = json["id"].string {

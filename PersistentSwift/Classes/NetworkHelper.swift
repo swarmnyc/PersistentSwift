@@ -19,7 +19,7 @@ extension Response {
 	/// Maps data received from the signal into an object which implements the ALSwiftyJSONAble protocol.
 	/// If the conversion fails, the signal errors.
     func map<T:PSJSONApiModel>(to type: T.Type) throws -> T {
-        let objStore: PSServiceModelStore = PSServiceModelStore()
+        let objStore: JSONAPIServiceModelStore = JSONAPIServiceModelStore()
 		let jsonObject = try mapJSON()
         let json = JSON(jsonObject)
         guard let mappedObject = T(json: json["data"], include: json["included"], objStore: objStore) else {
@@ -32,7 +32,7 @@ extension Response {
 	/// Maps data received from the signal into an array of objects which implement the ALSwiftyJSONAble protocol
 	/// If the conversion fails, the signal errors.
     func map<T:PSJSONApiModel>(to type: [T.Type]) throws -> [T] {
-        let objStore: PSServiceModelStore = PSServiceModelStore()
+        let objStore: JSONAPIServiceModelStore = JSONAPIServiceModelStore()
 		let jsonObject = try mapJSON()
         let json = JSON(jsonObject)
 		let mappedArray = json["data"];
@@ -46,12 +46,12 @@ extension Response {
 }
 
 
-public struct AuthPlugin<T:PSJSONApiModel, D:TestData, S: PSServiceSettings>: PluginType {
-	public let tokenClosure: ((PSServiceMap<T,D,S>) -> String?)
+public struct AuthPlugin<T:PSJSONApiModel, D:TestData, S: JSONAPIServiceSettings>: PluginType {
+	public let tokenClosure: ((JSONAPITargetType<T,S>) -> String?)
 
 	public func prepare(_ request: URLRequest, target: TargetType) -> URLRequest {
 
-		if let token = tokenClosure(target as! PSServiceMap<T,D,S>) {
+		if let token = tokenClosure(target as! JSONAPITargetType<T,S>) {
 			var request = request
 			request.addValue("Bearer " + token, forHTTPHeaderField: "Authorization")
 			return request

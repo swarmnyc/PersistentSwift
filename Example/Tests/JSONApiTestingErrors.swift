@@ -11,14 +11,18 @@ import PersistentSwift
 import SwiftyJSON
 import PromiseKit
 import CoreLocation
+import Moya
 
 //swiftlint:disable line_length
 //swiftlint:disable trailing_whitespace
 class JSONApiTestingErrors: XCTestCase {
     
-    public struct ArticleSettings: PSServiceSettings {
+    public struct ArticleSettings: JSONAPIServiceSettings {
+        public static var subbedJSONRequests: TestData.Type {
+            return ArticlesTestData.self
+        }
         
-        static var isTesting: Bool {
+        static var stubJSONInRequest: Bool {
             return true
         }
         
@@ -30,20 +34,10 @@ class JSONApiTestingErrors: XCTestCase {
             return true
         }
         
-        static func getTimeout<Model: PSJSONApiModel, TestD: TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> Double {
-            switch target {
-            case .createObject( _):
-                return 4
-            case .getListPaginated( _):
-                return 5
-            default:
-                return 12
-            }
+        public static var plugins: [PluginType] {
+            return  []
         }
         
-        static func getAuthToken<Model: PSJSONApiModel, TestD: TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> String? {
-            return nil
-        }
     }
     
     final class Author: PSJSONApiModel {
@@ -101,7 +95,7 @@ class JSONApiTestingErrors: XCTestCase {
         
     }
     
-    class ArticlesNetworkManager: PSNetworkManager<Articles, ArticlesTestData, ArticleSettings> {
+    class ArticlesNetworkManager: JSONAPIService<Articles, ArticleSettings> {
         static var shared: ArticlesNetworkManager = ArticlesNetworkManager()
         
     }
@@ -120,7 +114,7 @@ class JSONApiTestingErrors: XCTestCase {
     func testGetRequestError() {
         
         let exp = self.expectation(description: "will get a list of articles")
-        ArticlesNetworkManager.shared.getListOfObjects().then(execute: { _ -> Void in
+        ArticlesNetworkManager.shared.getListOfObjects(query: Query()).then(execute: { _ -> Void in
             exp.fulfill()
         }).catch { _ in
             XCTAssert(true)

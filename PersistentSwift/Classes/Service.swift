@@ -13,18 +13,18 @@ import Alamofire
 
 
 
-public struct TimeoutPlugin<T:PSJSONApiModel, D:TestData, S: PSServiceSettings>: PluginType {
+public struct TimeoutPlugin<T:PSJSONApiModel, S: JSONAPIServiceSettings>: PluginType {
     
-    var timeoutGetter: ((PSServiceMap<T,D,S>) -> Double)?
+    var timeoutGetter: ((JSONAPITargetType<T,S>) -> Double)?
     
-    init(timeoutGetter: ((PSServiceMap<T,D,S>) -> Double)?) {
+    init(timeoutGetter: ((JSONAPITargetType<T,S>) -> Double)?) {
         self.timeoutGetter = timeoutGetter
     }
     
     /// Called to modify a request before sending
     public func prepare(_ request: URLRequest, target: TargetType) -> URLRequest {
         var req = request;
-        if let timeout = self.timeoutGetter?(target as! PSServiceMap<T,D,S>) {
+        if let timeout = self.timeoutGetter?(target as! JSONAPITargetType<T,S>) {
             req.timeoutInterval = timeout;
         }
         return req;
@@ -35,43 +35,52 @@ public struct TimeoutPlugin<T:PSJSONApiModel, D:TestData, S: PSServiceSettings>:
 
 
 
-public protocol PSServiceSettings {
-  
+public protocol JSONAPIServiceSettings {
     static var baseUrl: String { get }
-    static var isTesting: Bool { get }
-    static var verboseLogging: Bool { get }
-    static func getTimeout<Model: PSJSONApiModel, TestD: TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> Double
-    static func getAuthToken<Model: PSJSONApiModel, TestD: TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> String?
-    
+    static var plugins: [PluginType] { get }
 }
 
 
-struct TestSettings: PSServiceSettings {
+
+struct TestSettings: JSONAPIServiceSettings {
+    
+    public static var subbedJSONRequests: TestData.Type {
+        return NoTestData.self
+    }
+
     static var baseUrl: String {
         return "";
     }
     
-    static var isTesting: Bool {
+    static var stubJSONInRequest: Bool {
         return false;
+    }
+    
+    static var stubbedJSONRequests: TestData.Type {
+        return NoTestData.self
     }
     
     static var verboseLogging: Bool {
         return false
     }
     
-    static func getTimeout<Model : PSJSONApiModel, TestD : TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> Double {
-        return 12;
+    static var testData: TestData.Type = NoTestData.self
+    
+    static var plugins: [PluginType] {
+            return []
+//        return [AuthPlugin(tokenClosure: self.getAuthToken),
+//        TimeoutPlugin(timeoutGetter: self.getTimeout),
+//        NetworkLoggerPlugin(verbose: self.verboseLogging)]
+        
     }
     
-    static func getAuthToken<Model : PSJSONApiModel, TestD : TestData, S: PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> String? {
-        return nil;
-    }
+  
     
 }
 
 
 
-public class PSServiceModelStore {
+public class JSONAPIServiceModelStore {
     internal var objStore: [String: [String: PSJSONApiModel]] = [:]
     
     func addObj<T: PSJSONApiModel>(_ obj: T) {
@@ -87,183 +96,25 @@ public class PSServiceModelStore {
     
 }
 
-
-
-//A Generic class for making network requests (to be subclassed for each section of the API eg. AvatarService, EventService, UserService etc
-
-public class PSService<T:PSJSONApiModel, D: TestData, S: PSServiceSettings> {
-    
-	var baseUrl: String = "";
-    
-	//the actual object used to make the requests
-	lazy var provider: MoyaProvider<PSServiceMap<T, D, S>> = self.getProvider();
-	var authToken: String?
-    
-	/// get a MoyaProvider to make API calls
-	func getProvider() -> MoyaProvider<PSServiceMap<T, D, S>> {
-            let provider = MoyaProvider<PSServiceMap<T, D, S>>(stubClosure: {
-                _ in
-                if S.isTesting {
-                    return .immediate;
-                } else {
-                    return .never
-                }
-            }, plugins: [
-                    AuthPlugin<T, D, S>(tokenClosure: S.getAuthToken),
-					TimeoutPlugin<T, D, S>(timeoutGetter: S.getTimeout),
-					NetworkLoggerPlugin(verbose: S.verboseLogging)
-				]
-			)
-			return provider;
-	}
-
-
-	
-
-	//a wrapper for a request which returns a single object, type is the type of request, defined in the API map
-	public func makeRequest(_ type: PSServiceMap<T, D, S>) -> Promise<T> {
-        Background.runInMainThread {
-            UIApplication.shared.isNetworkActivityIndicatorVisible = true;
-        }
-        let promise = Promise<T>.pending();
-			self.provider.request(type, completion: {
-				result in
-				switch result {
-					case let .success(moyaResponse):
-                        Background.runInBackground {
-                            
-                            do {
-				try moyaResponse.filterSuccessfulStatusAndRedirectCodes();
-                                let object = try moyaResponse.map(to: T.self);
-                                Background.runInMainThread {
-                                    UIApplication.shared.isNetworkActivityIndicatorVisible = false;
-                                    promise.fulfill(object);
-                                }
-                            }
-                            catch {
-                                print(error);
-                                print(type);
-                                Background.runInMainThread {
-                                    UIApplication.shared.isNetworkActivityIndicatorVisible = false;
-                                    promise.reject(error);
-                                }
-                            }
-                        }
-						break;
-					case let .failure(error):
-						Background.runInMainThread {
-                            UIApplication.shared.isNetworkActivityIndicatorVisible = false;
-							promise.reject(error);
-						}
-						break;
-				}
-			});
-		return promise.promise;
-	}
-
-	public func makeRequestNoObjectReturn(_ type: PSServiceMap<T, D, S>) -> Promise<Void> {
-        Background.runInMainThread {
-            UIApplication.shared.isNetworkActivityIndicatorVisible = true;
-        }
-        let promise = Promise<Void>.pending();
-		Background.runInBackground {
-			self.provider.request(type, completion: {
-				result in
-
-                switch result {
-					case let .success(moyaResponse):
-						do {
-							try moyaResponse.filterSuccessfulStatusAndRedirectCodes();
-							Background.runInMainThread {
-                                UIApplication.shared.isNetworkActivityIndicatorVisible = false;
-								promise.fulfill();
-							}
-
-						}
-						catch {
-							print(error);
-							Background.runInMainThread {
-                                UIApplication.shared.isNetworkActivityIndicatorVisible = false;
-								promise.reject(error);
-							}
-						}
-						break;
-					case let .failure(error):
-						Background.runInMainThread {
-                            UIApplication.shared.isNetworkActivityIndicatorVisible = false;
-							promise.reject(error);
-						}
-						break;
-				}
-			});
-		}
-
-		return promise.promise;
-	}
-
-
-	//a wrapper for a request which returns an array of objects
-	public func makeRequestArray(_ type: PSServiceMap<T, D, S>) -> Promise<[T]> {
-        Background.runInMainThread {
-            UIApplication.shared.isNetworkActivityIndicatorVisible = true;
-        }
-		let promise = Promise<[T]>.pending();
-		Background.runInBackground {
-			self.provider.request(type, completion: {
-				result in
-                switch result {
-					case let .success(moyaResponse):
-                        Background.runInBackground {
-                            do {
-				try moyaResponse.filterSuccessfulStatusAndRedirectCodes();    
-                                let objects = try moyaResponse.map(to: [T.self]) as! [T];
-                                Background.runInMainThread {
-                                    UIApplication.shared.isNetworkActivityIndicatorVisible = false;
-                                    promise.fulfill(objects);
-                                }
-                            }
-                            catch {
-                                print(error);
-                                Background.runInMainThread {
-                                    UIApplication.shared.isNetworkActivityIndicatorVisible = false;
-                                    promise.reject(error);
-                                }
-                            }
-                        }
-						break;
-					case let .failure(error):
-						Background.runInMainThread {
-                            UIApplication.shared.isNetworkActivityIndicatorVisible = false;
-							promise.reject(error);
-						}
-						break;
-				}
-			});
-		}
-
-		return promise.promise;
-	}
-    
-    
-    
-
+open class Query {
+    public init() {
+        
+    }
 }
 
-public enum PSServiceMap<T: PSJSONApiModel, D: TestData, S: PSServiceSettings> {
-    case getList
-    case getListWith(params: [String: Any])
-    case getListPaginated(page: Int, limit: Int, params: [String: Any]);
+
+public enum JSONAPITargetType<T: PSJSONApiModel, S: JSONAPIServiceSettings> {
+    case get(query: Query)
     case createObject(obj: T)
     case updateObject(obj: T)
     case deleteObject(obj: T)
-    case getObject(obj: T)
+    case getObject(id: String)
 }
 
 
-extension PSServiceMap: TargetType {
+extension JSONAPITargetType: TargetType {
     
     typealias Model = T;
-    typealias TestData = D;
     
     
     /// The target's base `URL`.
@@ -274,31 +125,23 @@ extension PSServiceMap: TargetType {
     /// The path to be appended to `baseURL` to form the full `URL`.
     public var path: String {
         switch self {
-        case .getList:
+        case .get:
             return "/\(T.modelName)";
-        case .getListWith(_):
-            return "\(T.modelName)";
-        case .getListPaginated(_):
-            return "\(T.modelName)";
         case .createObject(let obj):
             return "/\(T.modelName)";
         case .updateObject(let obj):
             return "/\(T.modelName)/\(obj.id)";
         case .deleteObject(let obj):
             return "/\(T.modelName)/\(obj.id)";
-        case .getObject(let obj):
-            return "/\(T.modelName)/\(obj.id)";
+        case .getObject(let id):
+            return "/\(T.modelName)/\(id)";
         }
     }
     
     /// The HTTP method used in the request.
     public var method: Moya.Method {
         switch self {
-        case .getList:
-            return .get;
-        case .getListWith(_):
-            return .get;
-        case .getListPaginated(_):
+        case .get:
             return .get;
         case .createObject(_):
             return .post;
@@ -314,34 +157,23 @@ extension PSServiceMap: TargetType {
     /// The parameters to be incoded in the request.
     public var parameters: [String: Any]? {
         switch self {
-        case .getList:
+        case .get:
             return nil;
-        case .getListWith(let params):
-            return params;
-        case .getListPaginated(let page, let limit, let params):
-            var p = params;
-            p["page"] = page;
-            p["per_page"] = limit;
-            return p;
         case .createObject(let obj):
             return obj.getCreateParameters(fromModelName: T.modelName);
         case .updateObject(let obj):
             return obj.getCreateParameters(fromModelName: T.modelName);
         case .deleteObject(_):
             return nil;
-        case .getObject(let obj):
-            return obj.getCreateParameters(fromModelName: T.modelName);
+        case .getObject( _):
+            return nil;
         }
     }
     
     /// The method used for parameter encoding.
     public var parameterEncoding: ParameterEncoding {
         switch self {
-        case .getList:
-            return URLEncoding.default;
-        case .getListWith(_):
-            return URLEncoding.default;
-        case .getListPaginated(_):
+        case .get:
             return URLEncoding.default;
         case .createObject(_):
             return JSONEncoding.default;
@@ -357,20 +189,16 @@ extension PSServiceMap: TargetType {
     /// Provides stub data for use in testing.
     public var sampleData: Data {
         switch self {
-        case .getList:
-            return D.getListTestData;
-        case .getListWith(_):
-            return D.getListWithParamsTestData;
-        case .getListPaginated(_):
-            return D.getListPaginatedTestData;
+        case .get:
+            return T.testData.getListTestData;
         case .createObject(_):
-            return D.getCreateTestData;
+            return T.testData.getCreateTestData;
         case .updateObject(_):
-            return D.getCreateTestData;
+            return T.testData.getCreateTestData;
         case .deleteObject(_):
-            return D.deleteTestData;
+            return T.testData.deleteTestData;
         case .getObject(_):
-            return D.getTestData;
+            return T.testData.getTestData;
         }
     }
     

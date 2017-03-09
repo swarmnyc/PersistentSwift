@@ -24,7 +24,7 @@ public protocol PSJSONAPIProperty: class {
     /// Setup relationships that are included inside of the JSON response
     ///
     /// - Parameter json: the "included" dictionary inside of the json Response
-    func addFromIncluded(_ json: JSON, objStore: PSServiceModelStore)
+    func addFromIncluded(_ json: JSON, objStore: JSONAPIServiceModelStore)
     func decode(_ aDecoder: NSCoder)
 }
 
@@ -96,7 +96,7 @@ open class PSAttribute<T>: PSJSONAPIWithGet {
     }
     
     
-    public func addFromIncluded(_ json: JSON, objStore: PSServiceModelStore) {
+    public func addFromIncluded(_ json: JSON, objStore: JSONAPIServiceModelStore) {
         
     }
     
@@ -187,7 +187,7 @@ public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
         }
     }
     
-    public func addFromIncluded(_ json: JSON, objStore: PSServiceModelStore) {
+    public func addFromIncluded(_ json: JSON, objStore: JSONAPIServiceModelStore) {
         let json = json.arrayValue
         if let value = self.value.pointee {
             if let obj: ModelType = objStore.getObj(byId: value.id) {
@@ -265,7 +265,7 @@ public class PSToMany<T: PSJSONApiModel>: PSJSONAPIWithGet {
         }
     }
     
-    public func addFromIncluded(_ json: JSON, objStore: PSServiceModelStore) {
+    public func addFromIncluded(_ json: JSON, objStore: JSONAPIServiceModelStore) {
         let json = json.arrayValue
         let values = self.value.pointee
         for (i, value) in values.enumerated() {
