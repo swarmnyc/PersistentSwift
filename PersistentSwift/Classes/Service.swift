@@ -15,16 +15,16 @@ import Alamofire
 
 open class TimeoutPlugin<T:PSJSONApiModel>: PluginType {
     
-    var timeoutGetter: ((JSONAPITargetType<T>) -> Double)?
+    var timeoutGetter: ((JSONAPITargetMethod<T>) -> Double)?
     
-    public init(timeoutGetter: ((JSONAPITargetType<T>) -> Double)?) {
+    public init(timeoutGetter: ((JSONAPITargetMethod<T>) -> Double)?) {
         self.timeoutGetter = timeoutGetter
     }
     
     /// Called to modify a request before sending
     public func prepare(_ request: URLRequest, target: TargetType) -> URLRequest {
         var req = request;
-        if let timeout = self.timeoutGetter?(target as! JSONAPITargetType<T>) {
+        if let timeout = self.timeoutGetter?(target as! JSONAPITargetMethod<T>) {
             req.timeoutInterval = timeout;
         }
         return req;
@@ -56,17 +56,17 @@ public class JSONAPIServiceModelStore {
 }
 
 open class JSONAPIRequest<T: PSJSONApiModel> {
-    var type: JSONAPITargetType<T>
+    var type: JSONAPITargetMethod<T>
     var settings: JSONAPIServiceSettings?
     var object: PSJSONApiModel
     var incudes: [String] = []
     
     open static func createSaveRequest(obj: T) -> JSONAPIRequest<T> {
-        return JSONAPIRequest<T>(obj: obj).addType(JSONAPITargetType<T>.updateObject)
+        return JSONAPIRequest<T>(obj: obj).addType(JSONAPITargetMethod<T>.updateObject)
     }
     
     open static func getObject(id: String) -> JSONAPIRequest<T> {
-        return JSONAPIRequest<T>(id: id).addType(JSONAPITargetType<T>.getObject)
+        return JSONAPIRequest<T>(id: id).addType(JSONAPITargetMethod<T>.getObject)
     }
     
     internal init(id: String) {
@@ -80,7 +80,7 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
         self.type = .get
     }
     
-    func addType(_ type: JSONAPITargetType<T>) -> JSONAPIRequest<T> {
+    func addType(_ type: JSONAPITargetMethod<T>) -> JSONAPIRequest<T> {
         self.type = type
         return self
     }
@@ -206,7 +206,7 @@ extension JSONAPIRequest: TargetType {
 }
 
 
-public enum JSONAPITargetType<T: PSJSONApiModel> {
+public enum JSONAPITargetMethod<T: PSJSONApiModel> {
     case get
     case createObject
     case updateObject
