@@ -105,7 +105,7 @@ class JSONApiTesting: XCTestCase {
     }
 
     func testGetRequest() {
-
+        
         let exp = self.expectation(description: "will get a list of articles")
         let request = JSONAPIRequest<Articles>.getObjects()
             .sortBy(&Articles().title, ascending: true)

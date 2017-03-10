@@ -98,6 +98,10 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
         return self
     }
     
+    public func addIncludeTypes(_ type: [PSJSONApiModel.Type]) -> JSONAPIRequest<T> {
+        return self
+    }
+    
     
     public func sortBy<V>(_ sort: inout V, ascending: Bool) -> JSONAPIRequest<T> {
         return self
@@ -108,7 +112,6 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
     }
     
 }
-
 extension JSONAPIRequest: TargetType {
     /// The target's base `URL`.
     public var baseURL: URL {
