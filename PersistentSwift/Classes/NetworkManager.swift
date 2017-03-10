@@ -16,6 +16,8 @@ public struct JSONAPIServiceSettings {
     public var spoofJSON: Bool = false
     public var testingJSON: TestData.Type = NoTestData.self
     
+    public var moyaProviderPlugins: [PluginType] = []
+    
     public init() {
         
     }
@@ -24,7 +26,6 @@ public struct JSONAPIServiceSettings {
 //Generic Network Manager
 open class JSONAPIService<T: PSJSONApiModel> {
     
-    var plugins: [PluginType] = []
     
     var settings: JSONAPIServiceSettings
     //the actual object used to make the requests
@@ -39,7 +40,7 @@ open class JSONAPIService<T: PSJSONApiModel> {
             } else {
                 return .never
             }
-        }, plugins: self.plugins
+        }, plugins: self.settings.moyaProviderPlugins
         )
         return provider;
     }

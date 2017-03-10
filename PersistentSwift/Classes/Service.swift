@@ -69,6 +69,10 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
         return JSONAPIRequest<T>(id: id).addType(JSONAPITargetMethod<T>.getObject)
     }
     
+    open static func getObjects() -> JSONAPIRequest<T> {
+        return JSONAPIRequest<T>(id: "").addType(JSONAPITargetMethod<T>.get)
+    }
+    
     internal init(id: String) {
         self.object = T()
         self.object.id = id
@@ -95,11 +99,11 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
     }
     
     
-    public func sortBy(_ sort: String) -> JSONAPIRequest<T> {
+    public func sortBy<V>(_ sort: inout V, ascending: Bool) -> JSONAPIRequest<T> {
         return self
     }
     
-    public func whereAttribute<V>(_ value: inout Any, equals: V) -> JSONAPIRequest<T> {
+    public func whereAttribute<V>(_ value: inout V, equals: V) -> JSONAPIRequest<T> {
         return self
     }
     
