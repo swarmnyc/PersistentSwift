@@ -11,76 +11,65 @@ import PromiseKit
 import Moya
 
 
-
-//Generic Network Manager
-open class JSONAPIService<Settings: JSONAPIServiceSettings> {
-    
-    typealias T = Settings.ModelType
-    typealias S = Settings.Settings
-    
-    
-    public typealias APIMap = JSONAPITargetType<T, S>;
-    
-    
-    //the actual object used to make the requests
-    var provider: MoyaProvider<JSONAPITargetType<T, S>> {
-        return Settings.provider as! MoyaProvider<JSONAPITargetType<T, S>>
-    }
+public struct JSONAPIServiceSettings {
+    public var baseUrl: String = ""
+    public var spoofJSON: Bool = false
+    public var testingJSON: TestData.Type = NoTestData.self
     
     public init() {
+        
     }
+}
+
+//Generic Network Manager
+open class JSONAPIService<T: PSJSONApiModel> {
     
-    /// Save a new object to the API (a post request)
-    ///
-    /// - Parameter obj: the object to send up
-    /// - Returns: A promise with the saved object
-    open func saveNewObject(obj: T) -> Promise<T> {
-        let request = APIMap.createObject(obj: obj);
-        return self.makeRequest(request);
+    var plugins: [PluginType] = []
+    
+    var settings: JSONAPIServiceSettings
+    //the actual object used to make the requests
+    lazy var provider: MoyaProvider<JSONAPIRequest<T>> = self.getProvider();
+    
+    /// get a MoyaProvider to make API calls
+    func getProvider() -> MoyaProvider<JSONAPIRequest<T>> {
+        let provider = MoyaProvider<JSONAPIRequest<T>>(stubClosure: {
+            _ in
+            if self.settings.spoofJSON {
+                return .immediate;
+            } else {
+                return .never
+            }
+        }, plugins: self.plugins
+        )
+        return provider;
     }
-    
-    /// Update an object that already exists on the server (a patch request)
-    ///
-    /// - Parameter obj: the object to update
-    /// - Returns: A promise with the updated object
-    open func updateObject(obj: T) -> Promise<T> {
-        let request = APIMap.updateObject(obj: obj);
-        return self.makeRequest(request);
-    }
-    
-    /// Delete an object on the server (a delete request)
-    ///
-    /// - Parameter obj: the object to delete
-    /// - Returns: A Void promise after the delete finishes
-    open func deleteObject(obj: T) -> Promise<Void> {
-        let request = APIMap.deleteObject(obj: obj);
-        return self.makeRequestNoObjectReturn(request);
-    }
-    
-    /// Get a specific object from the server
-    ///
-    /// - Parameter obj: The object to get (can be populated with only the id)
-    /// - Returns: A promise with the object
-    open func getObject(id: String) -> Promise<T> {
-        let request = APIMap.getObject(id: id);
-        return self.makeRequest(request);
+
+    public init(settings: JSONAPIServiceSettings) {
+        self.settings = settings
     }
     
     
-    /// Get all objects from the server (a plain old get request with no params)
-    ///
-    /// - Returns: A promise with an array of objects
-    open func getListOfObjects(query: Query) -> Promise<[T]> {
-        let request = APIMap.get(query: query);
-        return self.makeRequestArray(request);
+    open func makeRequest(request: JSONAPIRequest<T>) -> Promise<[T]> {
+        var request = request.addSettings(self.settings)
+        switch request.type {
+        case .getObject:
+            return self.makeRequest(request).then { obj -> [T] in
+                return [obj]
+            }
+        case .deleteObject:
+            return self.makeRequestNoObjectReturn(request).then(execute: { () -> [T] in
+                let array: [T] = []
+                return array
+            })
+        default:
+            return self.makeRequestArray(request)
+        }
     }
-    
-  
-    
+
     
     
     //a wrapper for a request which returns a single object, type is the type of request, defined in the API map
-    internal func makeRequest(_ type: JSONAPITargetType<T, S>) -> Promise<T> {
+    internal func makeRequest(_ type: JSONAPIRequest<T>) -> Promise<T> {
         Background.runInMainThread {
             UIApplication.shared.isNetworkActivityIndicatorVisible = true;
         }
@@ -120,7 +109,7 @@ open class JSONAPIService<Settings: JSONAPIServiceSettings> {
         return promise.promise;
     }
     
-    internal func makeRequestNoObjectReturn(_ type: JSONAPITargetType<T, S>) -> Promise<Void> {
+    internal func makeRequestNoObjectReturn(_ type: JSONAPIRequest<T>) -> Promise<Void> {
         Background.runInMainThread {
             UIApplication.shared.isNetworkActivityIndicatorVisible = true;
         }
@@ -162,7 +151,7 @@ open class JSONAPIService<Settings: JSONAPIServiceSettings> {
     
     
     //a wrapper for a request which returns an array of objects
-    internal func makeRequestArray(_ type: JSONAPITargetType<T, S>) -> Promise<[T]> {
+    internal func makeRequestArray(_ type: JSONAPIRequest<T>) -> Promise<[T]> {
         Background.runInMainThread {
             UIApplication.shared.isNetworkActivityIndicatorVisible = true;
         }

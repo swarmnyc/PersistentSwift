@@ -46,17 +46,17 @@ extension Response {
 }
 
 
-open class AuthPlugin<T:PSJSONApiModel, S: JSONAPIServiceSettings>: PluginType {
-	public var tokenClosure: ((JSONAPITargetType<T,S>) -> String?)
+open class AuthPlugin<T:PSJSONApiModel>: PluginType {
+	public var tokenClosure: ((JSONAPIRequest<T>) -> String?)
 
-    public init(tokenClosure: @escaping ((JSONAPITargetType<T, S>) -> String?)) {
+    public init(tokenClosure: @escaping ((JSONAPIRequest<T>) -> String?)) {
         self.tokenClosure = tokenClosure
     }
     
     
 	public func prepare(_ request: URLRequest, target: TargetType) -> URLRequest {
 
-		if let token = tokenClosure(target as! JSONAPITargetType<T,S>) {
+		if let token = tokenClosure(target as! JSONAPIRequest<T>) {
 			var request = request
 			request.addValue("Bearer " + token, forHTTPHeaderField: "Authorization")
 			return request

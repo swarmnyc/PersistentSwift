@@ -16,31 +16,7 @@ import Moya
 //swiftlint:disable line_length
 //swiftlint:disable type_body_length
 class JSONApiTesting: XCTestCase {
-    public struct ArticleSettings: JSONAPIServiceSettings {
-        typealias ModelType = Articles
-        typealias Settings = ArticleSettings
-        
-        static var provider: MoyaProvider<JSONAPITargetType<JSONApiTesting.Articles, JSONApiTesting.ArticleSettings>> = MoyaProvider()
-        
-        static var baseUrl: String {
-            return "http://google.com/"
-        }
-        public static var plugins: [PluginType] {
-            return [self.getAuthPlugin(),
-                    self.getTimeoutPlugin(),
-                    NetworkLoggerPlugin(verbose: true)]
-        }
-        public static func getAuthPlugin() -> AuthPlugin<Articles, ArticleSettings> {
-            return AuthPlugin(tokenClosure: { _ in
-                return nil
-            })
-        }
-        public static func getTimeoutPlugin() -> TimeoutPlugin<Articles, ArticleSettings> {
-            return TimeoutPlugin(timeoutGetter: { _ in
-                return 14
-            })
-        }
-    }
+   
     final class Author: PSJSONApiModel {
 
         open var name: String = ""
@@ -50,12 +26,7 @@ class JSONApiTesting: XCTestCase {
         override class var modelName: String {
             return "authors"
         }
-        override class var testData: TestData.Type {
-            return ArticlesTestData.self
-        }
-        override class var shouldStubJson: Bool {
-            return true
-        }
+       
         override func register(attributes: inout [PSJSONAPIProperty], andRelationships relationships: inout [PSJSONAPIProperty]) {
             attributes.append(PSAttribute(property: &self.name, jsonKey: "name"))
             attributes.append(PSAttribute(property: &self.age, jsonKey: "age"))
@@ -69,12 +40,7 @@ class JSONApiTesting: XCTestCase {
         override class var modelName: String {
             return "articles"
         }
-        override class var testData: TestData.Type {
-            return ArticlesTestData.self
-        }
-        override class var shouldStubJson: Bool {
-            return true
-        }
+      
         open var title: String = "test"
         open var body: String = "body"
         var author: Author?
@@ -130,13 +96,29 @@ class JSONApiTesting: XCTestCase {
 
     }
 
-    class ArticlesNetworkManager: JSONAPIService<ArticleSettings> {
-        static var shared: ArticlesNetworkManager = ArticlesNetworkManager()
+    class ArticlesNetworkManager: JSONAPIService<Articles> {
+        static var shared: ArticlesNetworkManager = ArticlesNetworkManager(settings: ArticlesNetworkManager.getSettings())
+        
+        static func getSettings() -> JSONAPIServiceSettings {
+            var settings = JSONAPIServiceSettings()
+            settings.baseUrl = "http://google.com"
+            settings.spoofJSON = true
+            settings.testingJSON = ArticlesTestData.self
+            return settings
+        }
 
     }
 
-    class MultiAuthorArticleNetworkManager: JSONAPIService<ArticleSettings> {
-        static var shared: MultiAuthorArticleNetworkManager = MultiAuthorArticleNetworkManager()
+    class MultiAuthorArticleNetworkManager: JSONAPIService<MultiAuthorPost> {
+        static var shared: MultiAuthorArticleNetworkManager = MultiAuthorArticleNetworkManager(settings: MultiAuthorArticleNetworkManager.getSettings())
+        
+        static func getSettings() -> JSONAPIServiceSettings {
+            var settings = JSONAPIServiceSettings()
+            settings.baseUrl = "http://google.com"
+            settings.spoofJSON = true
+            settings.testingJSON = ArticlesTestData.self
+            return settings
+        }
     }
     override func setUp() {
         super.setUp()
@@ -149,20 +131,20 @@ class JSONApiTesting: XCTestCase {
         super.tearDown()
     }
 
-    func testGetRequest() {
-
-        let exp = self.expectation(description: "will get a list of articles")
-        ArticlesNetworkManager.shared.getListOfObjects(query: Query()).then(execute: { articles -> Void in
-            XCTAssertEqual(articles.count, 1)
-            XCTAssertEqual(articles[0].title, "JSON API paints my bikeshed!")
-            XCTAssertEqual(articles[0].body, "The shortest article. Ever.")
-            exp.fulfill()
-        }).catch { _ in
-            XCTAssert(false)
-        }
-
-        self.waitForExpectations(timeout: 15, handler: nil)
-    }
+//    func testGetRequest() {
+//
+//        let exp = self.expectation(description: "will get a list of articles")
+//        ArticlesNetworkManager.shared.getListOfObjects(query: Query()).then(execute: { articles -> Void in
+//            XCTAssertEqual(articles.count, 1)
+//            XCTAssertEqual(articles[0].title, "JSON API paints my bikeshed!")
+//            XCTAssertEqual(articles[0].body, "The shortest article. Ever.")
+//            exp.fulfill()
+//        }).catch { _ in
+//            XCTAssert(false)
+//        }
+//
+//        self.waitForExpectations(timeout: 15, handler: nil)
+//    }
 //    func testGetListWithParams() {
 //        let exp = self.expectation(description: "will get a list of articles")
 //        ArticlesNetworkManager.shared.getListOfObjects(params: ["test": "test"]).then(execute: { articles -> Void in
@@ -181,54 +163,65 @@ class JSONApiTesting: XCTestCase {
         let exp = self.expectation(description: "will get single object")
         let article = Articles()
         article.id = "test"
-        _ = ArticlesNetworkManager.shared.getObject(id: "test").then(execute: { art -> Void in
+        let request = JSONAPIRequest<Articles>.getObject(id: "test")
+                                              .addIncludeType(Author.self)
+        _ = ArticlesNetworkManager.shared.makeRequest(request: request).then { articles -> Void in
+            let art = articles[0]
             XCTAssertEqual(art.title, "JSON API paints my bikeshed!")
             XCTAssertEqual(art.body, "The shortest article. Ever.")
             XCTAssertEqual(art.author?.id, "42")
             exp.fulfill()
-        })
+        }
+       
         self.waitForExpectations(timeout: 1.5, handler: nil)
     }
     func testGetSingleRequestWithToManyRelation() {
         let exp = self.expectation(description: "will get single object")
         let article = MultiAuthorPost()
         article.id = "test"
-        _ = MultiAuthorArticleNetworkManager.shared.getObject(id: "test").then(execute: { art -> Void in
+        let request = JSONAPIRequest<MultiAuthorPost>.getObject(id: "test")
+        _ = MultiAuthorArticleNetworkManager.shared.makeRequest(request: request).then { articles -> Void in
+            let art = articles[0]
             XCTAssertEqual(art.title, "JSON API paints my bikeshed!")
             XCTAssertEqual(art.body, "The shortest article. Ever.")
             XCTAssertEqual(art.author?.id, "42")
             XCTAssertEqual(art.authors.count, 3)
             exp.fulfill()
-        })
-        self.waitForExpectations(timeout: 1000, handler: nil)
+        }
+        self.waitForExpectations(timeout: 2, handler: nil)
     }
     
-    func testGetSingleRequestIncludeToOne() {
-        let exp = self.expectation(description: "will get single object")
-        let article = Articles()
+    func testGetSingleRequestIncludeToOneRelationship() {
+        let exp = self.expectation(description: "will get single object and relationship")
+        let article = MultiAuthorPost()
         article.id = "test"
-        _ = ArticlesNetworkManager.shared.getObject(id: "test").then(execute: { art -> Void in
+        let request = JSONAPIRequest<MultiAuthorPost>.getObject(id: "test")
+        _ = MultiAuthorArticleNetworkManager.shared.makeRequest(request: request).then { articles -> Void in
+            let art = articles[0]
             XCTAssertEqual(art.author?.name, "John")
             XCTAssertEqual(art.author?.age, 80)
             XCTAssertEqual(art.author?.gender, "male")
             XCTAssertEqual(art.author?.isBlank, false)
             exp.fulfill()
-        })
-        self.waitForExpectations(timeout: 1000, handler: nil)
+
+        }
+        self.waitForExpectations(timeout: 2, handler: nil)
     }
-    
+
     func testGetSingleRequestIncludeToMany() {
         let exp = self.expectation(description: "will get single object")
         let article = MultiAuthorPost()
         article.id = "test"
-        _ = MultiAuthorArticleNetworkManager.shared.getObject(id: "test").then(execute: { art -> Void in
+        let request = JSONAPIRequest<MultiAuthorPost>.getObject(id: "test")
+        _ = MultiAuthorArticleNetworkManager.shared.makeRequest(request: request).then { articles -> Void in
+            let art = articles[0]
             XCTAssertEqual(art.authors.count, 3)
             XCTAssertEqual(art.authors[0].name, "John")
             XCTAssertEqual(art.authors[0].isBlank, false)
             XCTAssertEqual(art.authors[1].name, "Joe")
             XCTAssertEqual(art.authors[2].name, "Jack")
             exp.fulfill()
-        })
+        }
         self.waitForExpectations(timeout: 1000, handler: nil)
     }
     
@@ -315,63 +308,63 @@ class JSONApiTesting: XCTestCase {
 
     }
 
-     func testUpdatingAnObject() {
-        let exp = self.expectation(description: "will update an article")
-        let article = Articles()
-        article.title = "test title"
-        article.body = "test body"
-        let author = Author()
-        author.id = "test id"
-        article.author = author
-        ArticlesNetworkManager.shared.updateObject(obj: article).then(execute: { article -> Void in
-            XCTAssertEqual(article.author?.id, "test id")
-            XCTAssertEqual(article.title, "test title")
-            XCTAssertEqual(article.body, "test body")
-            exp.fulfill()
-        }).catch { _ in
-            XCTAssert(false, "request failed")
-        }
-        self.waitForExpectations(timeout: 30, handler: nil)
-    }
-    func testCreateRequest() {
-        let exp = self.expectation(description: "will create an article")
-
-        let article = Articles()
-        article.title = "test title"
-        article.body = "test body"
-        let author = Author()
-        author.id = "test id"
-        article.author = author
-
-        ArticlesNetworkManager.shared.saveNewObject(obj: article).then(execute: { article -> Void in
-            XCTAssertEqual(article.author?.id, "test id")
-            XCTAssertEqual(article.title, "test title")
-            XCTAssertEqual(article.body, "test body")
-            exp.fulfill()
-        }).catch { _ in
-            XCTAssert(false, "request failed")
-        }
-
-        self.waitForExpectations(timeout: 30, handler: nil)
-
-    }
-
-    func testDeleteData() {
-        let exp = self.expectation(description: "will delete an article")
-
-        let article = Articles()
-        article.title = "test title"
-        article.body = "test body"
-        let author = Author()
-        author.id = "test id"
-
-        ArticlesNetworkManager.shared.deleteObject(obj: article).then {
-            exp.fulfill()
-            }.catch {_ in
-                XCTAssert(false, "this request never finished")
-        }
-        self.waitForExpectations(timeout: 5, handler: nil)
-    }
+//     func testUpdatingAnObject() {
+//        let exp = self.expectation(description: "will update an article")
+//        let article = Articles()
+//        article.title = "test title"
+//        article.body = "test body"
+//        let author = Author()
+//        author.id = "test id"
+//        article.author = author
+//        ArticlesNetworkManager.shared.updateObject(obj: article).then(execute: { article -> Void in
+//            XCTAssertEqual(article.author?.id, "test id")
+//            XCTAssertEqual(article.title, "test title")
+//            XCTAssertEqual(article.body, "test body")
+//            exp.fulfill()
+//        }).catch { _ in
+//            XCTAssert(false, "request failed")
+//        }
+//        self.waitForExpectations(timeout: 30, handler: nil)
+//    }
+//    func testCreateRequest() {
+//        let exp = self.expectation(description: "will create an article")
+//
+//        let article = Articles()
+//        article.title = "test title"
+//        article.body = "test body"
+//        let author = Author()
+//        author.id = "test id"
+//        article.author = author
+//
+//        ArticlesNetworkManager.shared.saveNewObject(obj: article).then(execute: { article -> Void in
+//            XCTAssertEqual(article.author?.id, "test id")
+//            XCTAssertEqual(article.title, "test title")
+//            XCTAssertEqual(article.body, "test body")
+//            exp.fulfill()
+//        }).catch { _ in
+//            XCTAssert(false, "request failed")
+//        }
+//
+//        self.waitForExpectations(timeout: 30, handler: nil)
+//
+//    }
+//
+//    func testDeleteData() {
+//        let exp = self.expectation(description: "will delete an article")
+//
+//        let article = Articles()
+//        article.title = "test title"
+//        article.body = "test body"
+//        let author = Author()
+//        author.id = "test id"
+//
+//        ArticlesNetworkManager.shared.deleteObject(obj: article).then {
+//            exp.fulfill()
+//            }.catch {_ in
+//                XCTAssert(false, "this request never finished")
+//        }
+//        self.waitForExpectations(timeout: 5, handler: nil)
+//    }
 
     func testNoData() {
         XCTAssertEqual(NoTestData.deleteTestData, Data())

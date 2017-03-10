@@ -17,28 +17,7 @@ import Moya
 //swiftlint:disable trailing_whitespace
 class JSONApiTestingErrors: XCTestCase {
     
-    public struct ArticleSettings: JSONAPIServiceSettings {
-        public static var subbedJSONRequests: TestData.Type {
-            return ArticlesTestData.self
-        }
-        
-        static var stubJSONInRequest: Bool {
-            return true
-        }
-        
-        static var baseUrl: String {
-            return "http://google.com/"
-        }
-        
-        static var verboseLogging: Bool {
-            return true
-        }
-        
-        public static var plugins: [PluginType] {
-            return  []
-        }
-        
-    }
+   
     
     final class Author: PSJSONApiModel {
         
@@ -95,9 +74,16 @@ class JSONApiTestingErrors: XCTestCase {
         
     }
     
-    class ArticlesNetworkManager: JSONAPIService<ArticleSettings> {
-        static var shared: ArticlesNetworkManager = ArticlesNetworkManager()
+    class ArticlesNetworkManager: JSONAPIService<Articles> {
+        static var shared: ArticlesNetworkManager = ArticlesNetworkManager(settings: ArticlesNetworkManager.getSettings())
         
+        static func getSettings() -> JSONAPIServiceSettings {
+            var settings = JSONAPIServiceSettings()
+            settings.baseUrl = "http://google.com"
+            settings.spoofJSON = true
+            settings.testingJSON = ArticlesTestData.self
+            return settings
+        }
     }
     
     override func setUp() {
@@ -111,17 +97,17 @@ class JSONApiTestingErrors: XCTestCase {
         super.tearDown()
     }
     
-    func testGetRequestError() {
-        
-        let exp = self.expectation(description: "will get a list of articles")
-        ArticlesNetworkManager.shared.getListOfObjects(query: Query()).then(execute: { _ -> Void in
-            exp.fulfill()
-        }).catch { _ in
-            XCTAssert(true)
-            exp.fulfill()
-        }
-        
-        self.waitForExpectations(timeout: 15, handler: nil)
-    }
+//    func testGetRequestError() {
+//        
+//        let exp = self.expectation(description: "will get a list of articles")
+//        ArticlesNetworkManager.shared.getListOfObjects(query: Query()).then(execute: { _ -> Void in
+//            exp.fulfill()
+//        }).catch { _ in
+//            XCTAssert(true)
+//            exp.fulfill()
+//        }
+//        
+//        self.waitForExpectations(timeout: 15, handler: nil)
+//    }
     
 }

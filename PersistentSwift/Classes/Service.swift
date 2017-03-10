@@ -13,18 +13,18 @@ import Alamofire
 
 
 
-open class TimeoutPlugin<T:PSJSONApiModel, S: JSONAPIServiceSettings>: PluginType {
+open class TimeoutPlugin<T:PSJSONApiModel>: PluginType {
     
-    var timeoutGetter: ((JSONAPITargetType<T,S>) -> Double)?
+    var timeoutGetter: ((JSONAPITargetType<T>) -> Double)?
     
-    public init(timeoutGetter: ((JSONAPITargetType<T,S>) -> Double)?) {
+    public init(timeoutGetter: ((JSONAPITargetType<T>) -> Double)?) {
         self.timeoutGetter = timeoutGetter
     }
     
     /// Called to modify a request before sending
     public func prepare(_ request: URLRequest, target: TargetType) -> URLRequest {
         var req = request;
-        if let timeout = self.timeoutGetter?(target as! JSONAPITargetType<T,S>) {
+        if let timeout = self.timeoutGetter?(target as! JSONAPITargetType<T>) {
             req.timeoutInterval = timeout;
         }
         return req;
@@ -34,59 +34,8 @@ open class TimeoutPlugin<T:PSJSONApiModel, S: JSONAPIServiceSettings>: PluginTyp
 }
 
 
-public protocol BaseJSONAPIServiceSettings {
-    static var baseUrl: String { get }
-}
-
-public protocol JSONAPIServiceSettings: BaseJSONAPIServiceSettings {
-    associatedtype ModelType: PSJSONApiModel
-    associatedtype Settings: BaseJSONAPIServiceSettings
-    
-    static var provider: MoyaProvider<JSONAPITargetType<ModelType, Settings>> { get set }
-}
 
 
-
-struct TestSettings: JSONAPIServiceSettings {
-    public static var provider: MoyaProvider<JSONAPITargetType<PSJSONApiModel, TestSettings>> = TestSettings.getMoyaProvider()
-    
-    public static func getMoyaProvider() -> MoyaProvider<JSONAPITargetType<PSJSONApiModel, TestSettings>> {
-        return MoyaProvider()
-    }
-    
-
-    typealias ModelType = PSJSONApiModel
-    typealias Settings = TestSettings
-    
-    static var baseUrl: String {
-        return "";
-    }
-    
-    static var stubJSONInRequest: Bool {
-        return false;
-    }
-    
-    static var stubbedJSONRequests: TestData.Type {
-        return NoTestData.self
-    }
-    
-    static var verboseLogging: Bool {
-        return false
-    }
-    
-    static var testData: TestData.Type = NoTestData.self
-    
-    static var plugins: [PluginType] {
-            return []
-//        return [AuthPlugin(tokenClosure: self.getAuthToken),
-//        TimeoutPlugin(timeoutGetter: self.getTimeout),
-//        NetworkLoggerPlugin(verbose: self.verboseLogging)]
-        
-    }
-    
-  
-    
-}
 
 
 
@@ -106,83 +55,117 @@ public class JSONAPIServiceModelStore {
     
 }
 
-open class Query {
-    public init() {
-        
+open class JSONAPIRequest<T: PSJSONApiModel> {
+    var type: JSONAPITargetType<T>
+    var settings: JSONAPIServiceSettings?
+    var object: PSJSONApiModel
+    var incudes: [String] = []
+    
+    open static func createSaveRequest(obj: T) -> JSONAPIRequest<T> {
+        return JSONAPIRequest<T>(obj: obj).addType(JSONAPITargetType<T>.updateObject)
     }
+    
+    open static func getObject(id: String) -> JSONAPIRequest<T> {
+        return JSONAPIRequest<T>(id: id).addType(JSONAPITargetType<T>.getObject)
+    }
+    
+    internal init(id: String) {
+        self.object = T()
+        self.object.id = id
+        self.type = .get
+    }
+    
+    internal init(obj: PSJSONApiModel) {
+        self.object = obj
+        self.type = .get
+    }
+    
+    func addType(_ type: JSONAPITargetType<T>) -> JSONAPIRequest<T> {
+        self.type = type
+        return self
+    }
+    
+    func addSettings(_ settings: JSONAPIServiceSettings) -> JSONAPIRequest<T> {
+        self.settings = settings
+        return self
+    }
+    
+    public func addIncludeType(_ type: PSJSONApiModel.Type) -> JSONAPIRequest<T> {
+        return self
+    }
+    
+    
+    public func sortBy(_ sort: String) -> JSONAPIRequest<T> {
+        return self
+    }
+    
+    public func whereAttribute<V>(_ value: inout Any, equals: V) -> JSONAPIRequest<T> {
+        return self
+    }
+    
 }
 
-
-public enum JSONAPITargetType<T: PSJSONApiModel, S: BaseJSONAPIServiceSettings> {
-    case get(query: Query)
-    case createObject(obj: T)
-    case updateObject(obj: T)
-    case deleteObject(obj: T)
-    case getObject(id: String)
-}
-
-
-extension JSONAPITargetType: TargetType {
-    
-    typealias Model = T;
-    
-    
+extension JSONAPIRequest: TargetType {
     /// The target's base `URL`.
     public var baseURL: URL {
-        return URL(string: S.baseUrl)!;
+        if let settings = self.settings {
+            return URL(string: settings.baseUrl)!;
+        }
+        assertionFailure("The Query request settings were never set")
+        return URL(string: "something has gone wrong")!
     }
     
     /// The path to be appended to `baseURL` to form the full `URL`.
     public var path: String {
-        switch self {
+        switch self.type {
         case .get:
             return "/\(T.modelName)";
-        case .createObject(let obj):
+        case .createObject:
             return "/\(T.modelName)";
-        case .updateObject(let obj):
-            return "/\(T.modelName)/\(obj.id)";
-        case .deleteObject(let obj):
-            return "/\(T.modelName)/\(obj.id)";
-        case .getObject(let id):
-            return "/\(T.modelName)/\(id)";
+        case .updateObject:
+            return "/\(T.modelName)/\(self.object.id)";
+        case .deleteObject:
+            return "/\(T.modelName)/\(self.object.id)";
+        case .getObject:
+            return "/\(T.modelName)/\(self.object.id)";
         }
     }
     
     /// The HTTP method used in the request.
     public var method: Moya.Method {
-        switch self {
+        switch self.type {
         case .get:
             return .get;
-        case .createObject(_):
+        case .createObject:
             return .post;
-        case .updateObject(obj: _):
+        case .updateObject:
             return .patch;
-        case .deleteObject(_):
+        case .deleteObject:
             return .delete
-        case .getObject(_):
+        case .getObject:
             return .get
         }
     }
     
     /// The parameters to be incoded in the request.
     public var parameters: [String: Any]? {
-        switch self {
+        switch self.type {
         case .get:
             return nil;
-        case .createObject(let obj):
-            return obj.getCreateParameters(fromModelName: T.modelName);
-        case .updateObject(let obj):
-            return obj.getCreateParameters(fromModelName: T.modelName);
-        case .deleteObject(_):
+        case .createObject:
+            return self.object.getCreateParameters(fromModelName: T.modelName);
+        case .updateObject:
+            return self.object.getCreateParameters(fromModelName: T.modelName);
+        case .deleteObject:
             return nil;
-        case .getObject( _):
+        case .getObject:
             return nil;
         }
     }
     
     /// The method used for parameter encoding.
     public var parameterEncoding: ParameterEncoding {
-        switch self {
+        switch self.type {
         case .get:
             return URLEncoding.default;
         case .createObject(_):
@@ -198,17 +181,20 @@ extension JSONAPITargetType: TargetType {
     
     /// Provides stub data for use in testing.
     public var sampleData: Data {
-        switch self {
+        guard let settings = self.settings else {
+            return Data()
+        }
+        switch self.type {
         case .get:
-            return T.testData.getListTestData;
+            return settings.testingJSON.getListTestData;
         case .createObject(_):
-            return T.testData.getCreateTestData;
+            return settings.testingJSON.getCreateTestData;
         case .updateObject(_):
-            return T.testData.getCreateTestData;
+            return settings.testingJSON.getCreateTestData;
         case .deleteObject(_):
-            return T.testData.deleteTestData;
+            return settings.testingJSON.deleteTestData;
         case .getObject(_):
-            return T.testData.getTestData;
+            return settings.testingJSON.getTestData;
         }
     }
     
@@ -216,7 +202,16 @@ extension JSONAPITargetType: TargetType {
     public var task: Task {
         return Task.request
     }
-    
-    
+
 }
+
+
+public enum JSONAPITargetType<T: PSJSONApiModel> {
+    case get
+    case createObject
+    case updateObject
+    case deleteObject
+    case getObject
+}
+
 
