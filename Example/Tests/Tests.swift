@@ -38,6 +38,7 @@ class Tests: XCTestCase {
         var pointer: UnsafeMutablePointer<Int?>
         
         init(value: inout Int?) {
+        
             let pointer: UnsafeMutablePointer<Int?> = UnsafeMutablePointer<Int?>(&value)
             pointer.pointee = value
             self.pointer = pointer

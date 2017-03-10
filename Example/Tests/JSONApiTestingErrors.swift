@@ -80,7 +80,7 @@ class JSONApiTestingErrors: XCTestCase {
         static func getSettings() -> JSONAPIServiceSettings {
             var settings = JSONAPIServiceSettings()
             settings.baseUrl = "http://google.com"
-            settings.spoofJSON = true
+            settings.spoofReturn = .json
             settings.testingJSON = ArticlesTestData.self
             return settings
         }

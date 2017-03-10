@@ -2,7 +2,7 @@ use_frameworks!
 
 target 'PersistentSwift_Example' do
   pod 'PersistentSwift', :path => '../'
-
+  pod 'Fakery'
   target 'PersistentSwift_Tests' do
     inherit! :search_paths
     pod 'PersistentSwift', :path => '../'

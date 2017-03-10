@@ -12,12 +12,14 @@ import SwiftyJSON
 import PromiseKit
 import CoreLocation
 import Moya
-
+import Fakery
 // swiftlint:disable line_length
 // swiftlint:disable type_body_length
 // swiftlint:disable trailing_whitespace
 class JSONApiTesting: XCTestCase {
    
+    
+    
     final class Author: PSJSONApiModel {
 
         open var name: String = ""
@@ -74,7 +76,7 @@ class JSONApiTesting: XCTestCase {
         static func getSettings() -> JSONAPIServiceSettings {
             var settings = JSONAPIServiceSettings()
             settings.baseUrl = "http://google.com"
-            settings.spoofJSON = true
+            settings.spoofReturn = .json
             settings.testingJSON = ArticlesTestData.self
             return settings
         }
@@ -87,7 +89,7 @@ class JSONApiTesting: XCTestCase {
         static func getSettings() -> JSONAPIServiceSettings {
             var settings = JSONAPIServiceSettings()
             settings.baseUrl = "http://google.com"
-            settings.spoofJSON = true
+            settings.spoofReturn = .json
             settings.testingJSON = ArticlesTestData.self
             settings.moyaProviderPlugins = []
             return settings
@@ -103,13 +105,63 @@ class JSONApiTesting: XCTestCase {
         // Put teardown code here. This method is called after the invocation of each test method in the class.
         super.tearDown()
     }
+    
+    func testSpoofingReturnWithCreatedObject() {
+        let exp = self.expectation(description: "Will spoof response with object of your choosing")
+        
+        //set up the settings and tell it to spoof the return with objects
+        var settings: JSONAPIServiceSettings = JSONAPIServiceSettings()
+        settings.spoofReturn = .objects
+        settings.baseUrl = "test"
+        let service = JSONAPIService<Articles>(settings: settings)
+        
+        //create the object
+        let article = self.getTestArticle()
+        //set the spoof object on the service
+        service.getObjectSpoof = article
+        
+        let request = JSONAPIRequest<Articles>.getObject(id: "test")
+        
+        _ = service.makeRequest(request: request).then { art -> Void in
+            XCTAssertEqual(art, article)
+            exp.fulfill()
+        }
+        
+        self.waitForExpectations(timeout: 0.5, handler: nil)
+    }
+    
+    func testSpoofingReturnWithCreatedArrayOfObjects() {
+        let exp = self.expectation(description: "Will spoof response with object of your choosing")
+        
+        var settings: JSONAPIServiceSettings = JSONAPIServiceSettings()
+        settings.spoofReturn = .objects
+        settings.baseUrl = "test"
+        let service = JSONAPIService<Articles>(settings: settings)
+        
+        let articles = self.getMultipleTestArticles(10)
+        
+        let request = JSONAPIRequest<Articles>.getObjects()
+        
+        service.getRequestSpoof = articles
+        
+        _ = service.makeRequest(request: request).then { art -> Void in
+            XCTAssertEqual(art, articles)
+            exp.fulfill()
+        }
+        
+        self.waitForExpectations(timeout: 0.5, handler: nil)
+    }
 
     func testGetRequest() {
+        
+        
+        print(#keyPath(Articles.author))
+        
         
         let exp = self.expectation(description: "will get a list of articles")
         let request = JSONAPIRequest<Articles>.getObjects()
             .sortBy(&Articles().title, ascending: true)
-            .whereAttribute(&Articles().body, equals: "test body, test test")
+            .whereAttribute(keyPath: #keyPath(Articles.body), equals: "test body, test test")
         
         ArticlesNetworkManager.shared.makeRequest(request: request).then(execute: { articles -> Void in
             XCTAssertEqual(articles.count, 1)
@@ -142,8 +194,7 @@ class JSONApiTesting: XCTestCase {
         article.id = "test"
         let request = JSONAPIRequest<Articles>.getObject(id: "test")
                                               .addIncludeType(Author.self)
-        _ = ArticlesNetworkManager.shared.makeRequest(request: request).then { articles -> Void in
-            let art = articles[0]
+        _ = ArticlesNetworkManager.shared.makeRequest(request: request).then { art -> Void in
             XCTAssertEqual(art.title, "JSON API paints my bikeshed!")
             XCTAssertEqual(art.body, "The shortest article. Ever.")
             XCTAssertEqual(art.author?.id, "42")
@@ -157,8 +208,7 @@ class JSONApiTesting: XCTestCase {
         let article = MultiAuthorPost()
         article.id = "test"
         let request = JSONAPIRequest<MultiAuthorPost>.getObject(id: "test")
-        _ = MultiAuthorArticleNetworkManager.shared.makeRequest(request: request).then { articles -> Void in
-            let art = articles[0]
+        _ = MultiAuthorArticleNetworkManager.shared.makeRequest(request: request).then { art -> Void in
             XCTAssertEqual(art.title, "JSON API paints my bikeshed!")
             XCTAssertEqual(art.body, "The shortest article. Ever.")
             XCTAssertEqual(art.author?.id, "42")
@@ -173,8 +223,7 @@ class JSONApiTesting: XCTestCase {
         let article = MultiAuthorPost()
         article.id = "test"
         let request = JSONAPIRequest<MultiAuthorPost>.getObject(id: "test")
-        _ = MultiAuthorArticleNetworkManager.shared.makeRequest(request: request).then { articles -> Void in
-            let art = articles[0]
+        _ = MultiAuthorArticleNetworkManager.shared.makeRequest(request: request).then { art -> Void in
             XCTAssertEqual(art.author?.name, "John")
             XCTAssertEqual(art.author?.age, 80)
             XCTAssertEqual(art.author?.gender, "male")
@@ -190,8 +239,7 @@ class JSONApiTesting: XCTestCase {
         let article = MultiAuthorPost()
         article.id = "test"
         let request = JSONAPIRequest<MultiAuthorPost>.getObject(id: "test")
-        _ = MultiAuthorArticleNetworkManager.shared.makeRequest(request: request).then { articles -> Void in
-            let art = articles[0]
+        _ = MultiAuthorArticleNetworkManager.shared.makeRequest(request: request).then { art -> Void in
             XCTAssertEqual(art.authors.count, 3)
             XCTAssertEqual(art.authors[0].name, "John")
             XCTAssertEqual(art.authors[0].isBlank, false)
@@ -382,6 +430,22 @@ class JSONApiTesting: XCTestCase {
             // swiftlint:disable:previous line_length
         }
         
+    }
+    
+    func getTestArticle() -> Articles {
+        let faker = Faker()
+        let article = Articles()
+        article.title = faker.name.firstName() + faker.name.lastName()
+        article.body = faker.lorem.paragraph()
+        return article
+    }
+    
+    func getMultipleTestArticles(_ numberOfArticles: Int) -> [Articles] {
+        var articles: [Articles] = []
+        for _ in 0..<numberOfArticles {
+            articles.append(self.getTestArticle())
+        }
+        return articles
     }
     
 }

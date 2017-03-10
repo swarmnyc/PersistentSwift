@@ -12,7 +12,7 @@ import CoreLocation
 
 public protocol PSJSONAPIProperty: class {
     var jsonKey: String { get set }
-    
+    func getPropertyType() -> PSJSONApiModel.Type
     /// Any transforms necessary to turn the property into json
     ///
     /// - Returns: Any representation of the property
@@ -26,6 +26,7 @@ public protocol PSJSONAPIProperty: class {
     /// - Parameter json: the "included" dictionary inside of the json Response
     func addFromIncluded(_ json: JSON, objStore: JSONAPIServiceModelStore)
     func decode(_ aDecoder: NSCoder)
+    
 }
 
 
@@ -33,7 +34,8 @@ public protocol PSJSONAPIWithGet: PSJSONAPIProperty {
     associatedtype ValueType
     
     var value: UnsafeMutablePointer<ValueType> { get set }
-    
+    func isEqualToProperty(_ property: inout ValueType) -> Bool
+
 }
 
 extension PSJSONAPIWithGet {
@@ -95,10 +97,30 @@ open class PSAttribute<T>: PSJSONAPIWithGet {
         return self.value.pointee
     }
     
+    open func getPropertyType() -> PSJSONApiModel.Type {
+        return PSJSONApiModel.self
+    }
     
     public func addFromIncluded(_ json: JSON, objStore: JSONAPIServiceModelStore) {
         
     }
+    
+    public func isEqualToProperty(_ property: inout T) -> Bool {
+        let pointer = UnsafeMutablePointer(&property)
+        if pointer == self.value {
+            return true
+        }
+        return false
+    }
+    
+//    public func isEqualToProperty(_ property: inout Property) -> Bool {
+//        
+//        let pointer = UnsafeMutablePointer(&property)
+//        if pointer == self.value {
+//            return true
+//        }
+//        return false
+//    }
     
 }
 
@@ -150,6 +172,9 @@ public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
         
     }
     
+    open func getPropertyType() -> PSJSONApiModel.Type {
+        return T.self
+    }
     
     
     /// Any transforms necessary to turn the property into json
@@ -206,6 +231,13 @@ public class PSToOne<T: PSJSONApiModel>: PSJSONAPIWithGet {
         }
     }
     
+    public func isEqualToProperty(_ property: inout ValueType) -> Bool {
+        let pointer = UnsafeMutablePointer(&property)
+        if pointer == self.value {
+            return true
+        }
+        return false
+    }
     
     
 }
@@ -231,6 +263,10 @@ public class PSToMany<T: PSJSONApiModel>: PSJSONAPIWithGet {
         self.jsonKey = jsonKey;
     }
     
+    
+    open func getPropertyType() -> PSJSONApiModel.Type {
+        return T.self
+    }
     
     
     public func serializeToJSON() -> Any? {
@@ -289,6 +325,14 @@ public class PSToMany<T: PSJSONApiModel>: PSJSONAPIWithGet {
             let json = JSON([self.jsonKey: value]);
             self.deserializeFromJSON(json);
         }
+    }
+    
+    public func isEqualToProperty(_ property: inout ValueType) -> Bool {
+        let pointer = UnsafeMutablePointer<ValueType>(&property)
+        if pointer == self.value {
+            return true
+        }
+        return false
     }
     
 }

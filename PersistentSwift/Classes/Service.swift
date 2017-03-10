@@ -12,33 +12,6 @@ import PromiseKit
 import Alamofire
 
 
-
-open class TimeoutPlugin<T:PSJSONApiModel>: PluginType {
-    
-    var timeoutGetter: ((JSONAPITargetMethod<T>) -> Double)?
-    
-    public init(timeoutGetter: ((JSONAPITargetMethod<T>) -> Double)?) {
-        self.timeoutGetter = timeoutGetter
-    }
-    
-    /// Called to modify a request before sending
-    public func prepare(_ request: URLRequest, target: TargetType) -> URLRequest {
-        var req = request;
-        if let timeout = self.timeoutGetter?(target as! JSONAPITargetMethod<T>) {
-            req.timeoutInterval = timeout;
-        }
-        return req;
-    }
-    
-    
-}
-
-
-
-
-
-
-
 public class JSONAPIServiceModelStore {
     internal var objStore: [String: [String: PSJSONApiModel]] = [:]
     
@@ -55,63 +28,139 @@ public class JSONAPIServiceModelStore {
     
 }
 
+open class JSONAPIRequestSingle<T: PSJSONApiModel>: JSONAPIRequest<T> {
+}
+
+open class JSONAPIRequestEmptyResponse<T: PSJSONApiModel>: JSONAPIRequest<T> {
+}
+
 open class JSONAPIRequest<T: PSJSONApiModel> {
-    var type: JSONAPITargetMethod<T>
+    var type: JSONAPITargetMethod
     var settings: JSONAPIServiceSettings?
     var object: PSJSONApiModel
-    var incudes: [String] = []
+    var includes: [String] = []
+    
+    var page: Int?
+    var perPage: Int?
+    
+    lazy var mirror: Mirror = Mirror(reflecting: self.object)
+    
+    public typealias ReturnType = [T]
     
     open static func createSaveRequest(obj: T) -> JSONAPIRequest<T> {
-        return JSONAPIRequest<T>(obj: obj).addType(JSONAPITargetMethod<T>.updateObject)
+        return JSONAPIRequest<T>(obj: obj).addType(JSONAPITargetMethod.updateObject)
     }
     
-    open static func getObject(id: String) -> JSONAPIRequest<T> {
-        return JSONAPIRequest<T>(id: id).addType(JSONAPITargetMethod<T>.getObject)
+    open static func getObject(id: String) -> JSONAPIRequestSingle<T> {
+        return JSONAPIRequestSingle<T>(id: id).addType(JSONAPITargetMethod.getObject)
     }
     
     open static func getObjects() -> JSONAPIRequest<T> {
-        return JSONAPIRequest<T>(id: "").addType(JSONAPITargetMethod<T>.get)
+        return JSONAPIRequest<T>(id: "").addType(JSONAPITargetMethod.get)
     }
     
-    internal init(id: String) {
+    open static func deleteObject(obj: T) -> JSONAPIRequestEmptyResponse<T> {
+        return JSONAPIRequestEmptyResponse<T>(obj: obj).addType(JSONAPITargetMethod.deleteObject)
+    }
+    
+    init(id: String) {
         self.object = T()
         self.object.id = id
         self.type = .get
     }
     
-    internal init(obj: PSJSONApiModel) {
+    init(obj: PSJSONApiModel) {
         self.object = obj
         self.type = .get
     }
     
-    func addType(_ type: JSONAPITargetMethod<T>) -> JSONAPIRequest<T> {
+    
+    func addType(_ type: JSONAPITargetMethod) -> Self {
         self.type = type
         return self
     }
     
-    func addSettings(_ settings: JSONAPIServiceSettings) -> JSONAPIRequest<T> {
+    func addSettings(_ settings: JSONAPIServiceSettings) -> Self {
         self.settings = settings
         return self
     }
     
-    public func addIncludeType(_ type: PSJSONApiModel.Type) -> JSONAPIRequest<T> {
+    public func addPagination(page: Int, perPage: Int) -> Self {
+        self.page = page
+        self.perPage = perPage
         return self
     }
     
-    public func addIncludeTypes(_ type: [PSJSONApiModel.Type]) -> JSONAPIRequest<T> {
+    public func addIncludeType(_ type: PSJSONApiModel.Type) -> Self {
+        for relationship in self.object.relationships {
+            if relationship.getPropertyType().modelName == type.modelName {
+                self.includes.append(relationship.jsonKey)
+            }
+        }
+        return self
+    }
+    
+    public func addIncludeTypes(_ types: [PSJSONApiModel.Type]) -> Self {
+        for type in types {
+            self.addIncludeType(type)
+        }
         return self
     }
     
     
-    public func sortBy<V>(_ sort: inout V, ascending: Bool) -> JSONAPIRequest<T> {
+    public func sortBy<V>(_ sort: inout V, ascending: Bool) -> Self {
+//        let attributes = self.object.relationships + self.object.attributes
+//        for attribute in attributes {
+//            if attribute.
+//        }
         return self
     }
     
-    public func whereAttribute<V>(_ value: inout V, equals: V) -> JSONAPIRequest<T> {
+    public func equals(_ callback: (T) -> ()) {
+        
+    }
+    
+    public func whereAttribute<V>(keyPath: String, equals: V) -> Self {
+       
+        
         return self
+    }
+    
+    
+    
+    
+    internal func createParameters() -> [String: Any] {
+        var params: [String: Any] = [:]
+        
+        self.addPaginationParamsIfNeeded(currentParams: &params)
+        self.addParametersFromObjectIfNeeded(currentParams: &params)
+        return params
+    }
+    
+    internal func addPaginationParamsIfNeeded(currentParams params: inout [String: Any]) {
+        if let page = self.page {
+            params["page"] = page
+        }
+        if let perPage = self.perPage {
+            params["per_page"] = perPage
+        }
+    }
+    
+    internal func addParametersFromObjectIfNeeded(currentParams params: inout [String: Any]) {
+        switch self.type {
+        case .createObject, .updateObject:
+            if let p = self.object.getCreateParameters(fromModelName: T.modelName) {
+                params = p
+            }
+        default:
+            return
+        }
+
     }
     
 }
+
+
 extension JSONAPIRequest: TargetType {
     /// The target's base `URL`.
     public var baseURL: URL {
@@ -126,15 +175,15 @@ extension JSONAPIRequest: TargetType {
     public var path: String {
         switch self.type {
         case .get:
-            return "/\(T.modelName)";
+            return "/\(T.modelName)"
         case .createObject:
-            return "/\(T.modelName)";
+            return "/\(T.modelName)"
         case .updateObject:
-            return "/\(T.modelName)/\(self.object.id)";
+            return "/\(T.modelName)/\(self.object.id)"
         case .deleteObject:
-            return "/\(T.modelName)/\(self.object.id)";
+            return "/\(T.modelName)/\(self.object.id)"
         case .getObject:
-            return "/\(T.modelName)/\(self.object.id)";
+            return "/\(T.modelName)/\(self.object.id)"
         }
     }
     
@@ -156,18 +205,7 @@ extension JSONAPIRequest: TargetType {
     
     /// The parameters to be incoded in the request.
     public var parameters: [String: Any]? {
-        switch self.type {
-        case .get:
-            return nil;
-        case .createObject:
-            return self.object.getCreateParameters(fromModelName: T.modelName);
-        case .updateObject:
-            return self.object.getCreateParameters(fromModelName: T.modelName);
-        case .deleteObject:
-            return nil;
-        case .getObject:
-            return nil;
-        }
+        return self.createParameters()
     }
     
     /// The method used for parameter encoding.
@@ -213,7 +251,7 @@ extension JSONAPIRequest: TargetType {
 }
 
 
-public enum JSONAPITargetMethod<T: PSJSONApiModel> {
+public enum JSONAPITargetMethod {
     case get
     case createObject
     case updateObject
