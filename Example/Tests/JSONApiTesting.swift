@@ -107,7 +107,10 @@ class JSONApiTesting: XCTestCase {
     func testGetRequest() {
 
         let exp = self.expectation(description: "will get a list of articles")
-        let request = JSONAPIRequest<Articles>.getObjects().sortBy(&Articles().title, ascending: true)
+        let request = JSONAPIRequest<Articles>.getObjects()
+            .sortBy(&Articles().title, ascending: true)
+            .whereAttribute(&Articles().body, equals: "test body, test test")
+        
         ArticlesNetworkManager.shared.makeRequest(request: request).then(execute: { articles -> Void in
             XCTAssertEqual(articles.count, 1)
             XCTAssertEqual(articles[0].title, "JSON API paints my bikeshed!")
