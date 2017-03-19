@@ -14,6 +14,7 @@ public protocol PSCachedModel {
     var id: String { get set }
 }
 
+
 open class PSJSONApiModel: NSObject, NSCoding, PSCachedModel {
     
     open class var modelName: String {

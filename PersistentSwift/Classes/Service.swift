@@ -37,11 +37,13 @@ open class JSONAPIRequestEmptyResponse<T: PSJSONApiModel>: JSONAPIRequest<T> {
 open class JSONAPIRequest<T: PSJSONApiModel> {
     var type: JSONAPITargetMethod
     var settings: JSONAPIServiceSettings?
-    var object: PSJSONApiModel
+    var object: T
     var includes: [String] = []
     
     var page: Int?
     var perPage: Int?
+    
+    var querys: [String: Any] = [:]
     
     lazy var mirror: Mirror = Mirror(reflecting: self.object)
     
@@ -69,7 +71,7 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
         self.type = .get
     }
     
-    init(obj: PSJSONApiModel) {
+    init(obj: T) {
         self.object = obj
         self.type = .get
     }
@@ -108,32 +110,62 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
     }
     
     
-    public func sortBy<V>(_ sort: inout V, ascending: Bool) -> Self {
-//        let attributes = self.object.relationships + self.object.attributes
-//        for attribute in attributes {
-//            if attribute.
-//        }
+    public func sortBy(jsonKey: String, ascending: Bool) -> Self {
+        self.setUpSort(jsonKey: jsonKey, ascending: ascending)
         return self
     }
     
-    public func equals(_ callback: (T) -> ()) {
+    internal func setUpSort(jsonKey: String, ascending: Bool) {
+        var queryString = jsonKey
+        if ascending == false {
+            queryString = "-\(queryString)"
+        }
         
+        if self.querys["sort"] == nil {
+            self.querys["sort"] = [queryString]
+        } else {
+            var array = self.querys["sort"] as! [String]
+            array.append(queryString)
+            self.querys["sort"] = array
+        }
     }
+
     
-    public func whereAttribute<V>(keyPath: String, equals: V) -> Self {
-       
+    public func whereAttribute<V>(jsonKey: String, equals: V) -> Self {
+        for attribute in self.object.attributes {
+            if attribute.jsonKey == jsonKey {
+                if let superAttribute = attribute as? PSAttribute<V> {
+                    superAttribute.value.pointee = equals
+                    let query = superAttribute.serializeToJSON()
+                    self.querys[jsonKey] = query
+                }
+            }
+        }
         
         return self
     }
     
+    public func whereRelationship(jsonKey: String, idEquals id: String) -> Self {
+        for relationships in self.object.relationships {
+            if relationships.jsonKey == jsonKey {
+                self.querys[jsonKey] = id
+            }
+        }
+        return self
+    }
+    
+    public func whereRelationship<V: PSJSONApiModel>(jsonKey: String, equals obj: V) -> Self {
+        self.whereRelationship(jsonKey: jsonKey, idEquals: obj.id)
+        return self
+    }
     
     
-    
-    internal func createParameters() -> [String: Any] {
+    public func createParameters() -> [String: Any] {
         var params: [String: Any] = [:]
         
         self.addPaginationParamsIfNeeded(currentParams: &params)
         self.addParametersFromObjectIfNeeded(currentParams: &params)
+        self.addQuerys(currentParams: &params)
         return params
     }
     
@@ -156,6 +188,12 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
             return
         }
 
+    }
+    
+    internal func addQuerys(currentParams params: inout [String: Any]) {
+        for query in self.querys {
+            params[query.key] = query.value
+        }
     }
     
 }

@@ -26,6 +26,7 @@ class JSONApiTesting: XCTestCase {
         open var age: Int = 0
         open var gender: String = ""
         open var articles: [Articles] = []
+        
         override class var modelName: String {
             return "authors"
         }
@@ -38,8 +39,18 @@ class JSONApiTesting: XCTestCase {
         }
 
     }
+    
+    enum TestingEnum {
+        case test
+    }
+    
     public class Articles: PSJSONApiModel {
-
+        //json keys
+        static var titleKey: String = "title"
+        static var bodyKey: String = "body"
+        static var locationKey: String = "location"
+        static var authorKey: String = "author"
+        
         override class var modelName: String {
             return "articles"
         }
@@ -47,14 +58,15 @@ class JSONApiTesting: XCTestCase {
         open var title: String = "test"
         open var body: String = "body"
         var author: Author?
-
+        
+        
         var location: CLLocationCoordinate2D = CLLocationCoordinate2D()
 
         override public func register(attributes: inout [PSJSONAPIProperty], andRelationships relationships: inout [PSJSONAPIProperty]) {
-            attributes.append(PSAttribute<String>(property: &self.body, jsonKey: "body"))
-            attributes.append(PSAttribute<String>(property: &self.title, jsonKey: "title"))
-            attributes.append(PSLocationAttribute(property: &self.location, jsonKey: "location"))
-            relationships.append(PSToOne<Author>(property: &self.author, jsonKey: "author"))
+            attributes.append(PSAttribute<String>(property: &self.body, jsonKey: Articles.bodyKey))
+            attributes.append(PSAttribute<String>(property: &self.title, jsonKey: Articles.titleKey))
+            attributes.append(PSLocationAttribute(property: &self.location, jsonKey: Articles.locationKey))
+            relationships.append(PSToOne<Author>(property: &self.author, jsonKey: Articles.authorKey))
         }
     }
     class MultiAuthorPost: Articles {
@@ -151,17 +163,39 @@ class JSONApiTesting: XCTestCase {
         
         self.waitForExpectations(timeout: 0.5, handler: nil)
     }
+    
+    func testWhereAttributeEquals() {
+        let query = JSONAPIRequest<Articles>.getObjects()
+            .whereAttribute(jsonKey: Articles.titleKey,
+                            equals: "testing test test")
+        let params = query.createParameters()
+        XCTAssertEqual(params[Articles.titleKey] as? String, "testing test test")
+    }
+    
+    func testWhereAttributeEqualsWithCustomPSAttributeClass() {
+        let query = JSONAPIRequest<Articles>.getObjects()
+            .whereAttribute(jsonKey: Articles.locationKey,
+                            equals: CLLocationCoordinate2D(latitude: 100, longitude: 100))
+        let params = query.createParameters()
+        // swiftlint:disable:next force_cast
+        XCTAssertEqual(params[Articles.locationKey] as! [Double], [100, 100])
+    }
+    
+    func testWhereRelationshipsEqualsWithId() {
+        let query = JSONAPIRequest<Articles>.getObjects()
+        .whereRelationship(jsonKey: Articles.authorKey, idEquals: "test_id")
+        
+        let params = query.createParameters()
+        XCTAssertEqual(params[Articles.authorKey] as? String, "test_id")
+    }
 
     func testGetRequest() {
         
-        
         print(#keyPath(Articles.author))
-        
         
         let exp = self.expectation(description: "will get a list of articles")
         let request = JSONAPIRequest<Articles>.getObjects()
-            .sortBy(&Articles().title, ascending: true)
-            .whereAttribute(keyPath: #keyPath(Articles.body), equals: "test body, test test")
+            .sortBy(jsonKey: Articles.titleKey, ascending: true)
         
         ArticlesNetworkManager.shared.makeRequest(request: request).then(execute: { articles -> Void in
             XCTAssertEqual(articles.count, 1)
@@ -248,6 +282,11 @@ class JSONApiTesting: XCTestCase {
             exp.fulfill()
         }
         self.waitForExpectations(timeout: 1000, handler: nil)
+    }
+    
+    func testEqualsFilter() {
+        
+
     }
     
 //    func testGetPaginatedListWithParams() {
