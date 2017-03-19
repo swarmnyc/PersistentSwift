@@ -9,7 +9,271 @@
 import Foundation
 import Moya
 import PromiseKit
-import Alamofire
+
+
+public enum SpoofReturn {
+    case none
+    case json
+    case objects
+}
+public struct JSONAPIServiceSettings {
+    public var baseUrl: String = ""
+    public var spoofReturn: SpoofReturn = .none
+    public var testingJSON: TestData.Type = NoTestData.self
+    public var timeoutClosure: ((JSONAPITargetMethod) -> Double)?
+    public var headersClosure: ((JSONAPITargetMethod) -> [String: String])?
+    public var moyaProviderPlugins: [PluginType] = []
+    
+    public init() {
+        
+    }
+}
+
+//Generic Network Manager
+open class JSONAPIService<T: PSJSONApiModel>: PluginType {
+    
+    
+    var settings: JSONAPIServiceSettings
+    //the actual object used to make the requests
+    lazy var provider: MoyaProvider<JSONAPIRequest<T>> = self.getProvider();
+    
+    /// get a MoyaProvider to make API calls
+    func getProvider() -> MoyaProvider<JSONAPIRequest<T>> {
+        let provider = MoyaProvider<JSONAPIRequest<T>>(stubClosure: {
+            _ in
+            if self.settings.spoofReturn == .json {
+                return .immediate;
+            } else {
+                return .never
+            }
+        }, plugins: [self] + self.settings.moyaProviderPlugins
+        )
+        return provider;
+    }
+    
+    open var getObjectSpoof: T = T()
+    open var createObjectSpoof: T = T()
+    open var updateObjectSpoof: T = T()
+    open var getRequestSpoof: [T] = []
+    
+    
+    public init(settings: JSONAPIServiceSettings) {
+        self.settings = settings
+    }
+    
+    
+    open func makeRequest(request: JSONAPIRequestSingle<T>) -> Promise<T> {
+        var request = request.addSettings(self.settings)
+        if self.settings.spoofReturn == .objects {
+            return self.makeSingleRequestSpoof(target: request.type)
+        }
+        return self.makeRequest(request)
+    }
+    
+    open func makeRequest(request: JSONAPIRequestEmptyResponse<T>) -> Promise<Void> {
+        var request = request.addSettings(self.settings)
+        if self.settings.spoofReturn == .objects {
+            return Promise<Void>(value: ())
+        }
+        return self.makeRequestNoObjectReturn(request)
+    }
+    
+    open func makeRequest(request: JSONAPIRequest<T>) -> Promise<[T]> {
+        var request = request.addSettings(self.settings)
+        if self.settings.spoofReturn == .objects {
+            return self.makeArrayRequestSpoof(tagert: request.type)
+        }
+        return self.makeRequestArray(request)
+    }
+    
+    
+    internal func makeSingleRequestSpoof(target: JSONAPITargetMethod) -> Promise<T> {
+        switch target {
+        case .getObject:
+            return Promise<T>(value: self.getObjectSpoof)
+        case .createObject:
+            return Promise<T>(value: self.createObjectSpoof)
+        case .updateObject:
+            return Promise<T>(value: self.updateObjectSpoof)
+        default:
+            return Promise<T>(value: self.getObjectSpoof)
+        }
+    }
+    
+    internal func makeArrayRequestSpoof(tagert: JSONAPITargetMethod) -> Promise<[T]> {
+        return Promise<[T]>(value: self.getRequestSpoof)
+    }
+    
+    open func prepare(_ request: URLRequest, target: TargetType) -> URLRequest {
+        guard let target = target as? JSONAPIRequest<T> else {
+            return request
+        }
+        var request = request
+        
+        self.addTimeoutToRequest(&request, target: target)
+        self.addHeadersToRequest(&request, target: target)
+        
+        return request
+    }
+    
+    internal func addTimeoutToRequest(_ request: inout URLRequest, target: JSONAPIRequest<T>) {
+        if let timeout = self.settings.timeoutClosure?(target.type) {
+            request.timeoutInterval = timeout
+        } else {
+            request.timeoutInterval = 20
+        }
+    }
+    
+    internal func addHeadersToRequest(_ request: inout URLRequest, target: JSONAPIRequest<T>) {
+        if let headers = self.settings.headersClosure?(target.type) {
+            for header in headers {
+                request.addValue(header.value, forHTTPHeaderField: header.key)
+            }
+        }
+    }
+    
+    /// Called immediately before a request is sent over the network (or stubbed).
+    open func willSend(_ request: RequestType, target: TargetType) {
+        
+    }
+    
+    /// Called after a response has been received, but before the MoyaProvider has invoked its completion handler.
+    open func didReceive(_ result: Result<Moya.Response>, target: TargetType) {
+        
+    }
+    
+    /// Called to modify a result before completion
+    open func process(_ result: Result<Moya.Response>, target: TargetType) -> Result<Moya.Response> {
+        return result
+    }
+    
+    
+    //a wrapper for a request which returns a single object, type is the type of request, defined in the API map
+    internal func makeRequest(_ type: JSONAPIRequest<T>) -> Promise<T> {
+        Background.runInMainThread {
+            UIApplication.shared.isNetworkActivityIndicatorVisible = true;
+        }
+        let promise = Promise<T>.pending();
+        self.provider.request(type, completion: {
+            result in
+            switch result {
+            case let .success(moyaResponse):
+                Background.runInBackground {
+                    
+                    do {
+                        try moyaResponse.filterSuccessfulStatusAndRedirectCodes();
+                        let object = try moyaResponse.map(to: T.self);
+                        Background.runInMainThread {
+                            UIApplication.shared.isNetworkActivityIndicatorVisible = false;
+                            promise.fulfill(object);
+                        }
+                    }
+                    catch {
+                        print(error);
+                        print(type);
+                        Background.runInMainThread {
+                            UIApplication.shared.isNetworkActivityIndicatorVisible = false;
+                            promise.reject(error);
+                        }
+                    }
+                }
+                break;
+            case let .failure(error):
+                Background.runInMainThread {
+                    UIApplication.shared.isNetworkActivityIndicatorVisible = false;
+                    promise.reject(error);
+                }
+                break;
+            }
+        });
+        return promise.promise;
+    }
+    
+    internal func makeRequestNoObjectReturn(_ type: JSONAPIRequest<T>) -> Promise<Void> {
+        Background.runInMainThread {
+            UIApplication.shared.isNetworkActivityIndicatorVisible = true;
+        }
+        let promise = Promise<Void>.pending();
+        Background.runInBackground {
+            self.provider.request(type, completion: {
+                result in
+                
+                switch result {
+                case let .success(moyaResponse):
+                    do {
+                        try moyaResponse.filterSuccessfulStatusAndRedirectCodes();
+                        Background.runInMainThread {
+                            UIApplication.shared.isNetworkActivityIndicatorVisible = false;
+                            promise.fulfill();
+                        }
+                        
+                    }
+                    catch {
+                        print(error);
+                        Background.runInMainThread {
+                            UIApplication.shared.isNetworkActivityIndicatorVisible = false;
+                            promise.reject(error);
+                        }
+                    }
+                    break;
+                case let .failure(error):
+                    Background.runInMainThread {
+                        UIApplication.shared.isNetworkActivityIndicatorVisible = false;
+                        promise.reject(error);
+                    }
+                    break;
+                }
+            });
+        }
+        
+        return promise.promise;
+    }
+    
+    
+    //a wrapper for a request which returns an array of objects
+    internal func makeRequestArray(_ type: JSONAPIRequest<T>) -> Promise<[T]> {
+        Background.runInMainThread {
+            UIApplication.shared.isNetworkActivityIndicatorVisible = true;
+        }
+        let promise = Promise<[T]>.pending();
+        Background.runInBackground {
+            self.provider.request(type, completion: {
+                result in
+                switch result {
+                case let .success(moyaResponse):
+                    Background.runInBackground {
+                        do {
+                            try moyaResponse.filterSuccessfulStatusAndRedirectCodes();
+                            let objects = try moyaResponse.map(to: [T.self]) as! [T];
+                            Background.runInMainThread {
+                                UIApplication.shared.isNetworkActivityIndicatorVisible = false;
+                                promise.fulfill(objects);
+                            }
+                        }
+                        catch {
+                            print(error);
+                            Background.runInMainThread {
+                                UIApplication.shared.isNetworkActivityIndicatorVisible = false;
+                                promise.reject(error);
+                            }
+                        }
+                    }
+                    break;
+                case let .failure(error):
+                    Background.runInMainThread {
+                        UIApplication.shared.isNetworkActivityIndicatorVisible = false;
+                        promise.reject(error);
+                    }
+                    break;
+                }
+            });
+        }
+        
+        return promise.promise;
+    }
+    
+}
+
 
 
 public class JSONAPIServiceModelStore {
@@ -27,267 +291,6 @@ public class JSONAPIServiceModelStore {
     }
     
 }
-
-open class JSONAPIRequestSingle<T: PSJSONApiModel>: JSONAPIRequest<T> {
-}
-
-open class JSONAPIRequestEmptyResponse<T: PSJSONApiModel>: JSONAPIRequest<T> {
-}
-
-open class JSONAPIRequest<T: PSJSONApiModel> {
-    var type: JSONAPITargetMethod
-    var settings: JSONAPIServiceSettings?
-    var object: T
-    var includes: [String] = []
-    
-    var page: Int?
-    var perPage: Int?
-    
-    var querys: [String: Any] = [:]
-    
-    lazy var mirror: Mirror = Mirror(reflecting: self.object)
-    
-    public typealias ReturnType = [T]
-    
-    open static func createSaveRequest(obj: T) -> JSONAPIRequest<T> {
-        return JSONAPIRequest<T>(obj: obj).addType(JSONAPITargetMethod.updateObject)
-    }
-    
-    open static func getObject(id: String) -> JSONAPIRequestSingle<T> {
-        return JSONAPIRequestSingle<T>(id: id).addType(JSONAPITargetMethod.getObject)
-    }
-    
-    open static func getObjects() -> JSONAPIRequest<T> {
-        return JSONAPIRequest<T>(id: "").addType(JSONAPITargetMethod.get)
-    }
-    
-    open static func deleteObject(obj: T) -> JSONAPIRequestEmptyResponse<T> {
-        return JSONAPIRequestEmptyResponse<T>(obj: obj).addType(JSONAPITargetMethod.deleteObject)
-    }
-    
-    init(id: String) {
-        self.object = T()
-        self.object.id = id
-        self.type = .get
-    }
-    
-    init(obj: T) {
-        self.object = obj
-        self.type = .get
-    }
-    
-    
-    func addType(_ type: JSONAPITargetMethod) -> Self {
-        self.type = type
-        return self
-    }
-    
-    func addSettings(_ settings: JSONAPIServiceSettings) -> Self {
-        self.settings = settings
-        return self
-    }
-    
-    public func addPagination(page: Int, perPage: Int) -> Self {
-        self.page = page
-        self.perPage = perPage
-        return self
-    }
-    
-    public func addIncludeType(_ type: PSJSONApiModel.Type) -> Self {
-        for relationship in self.object.relationships {
-            if relationship.getPropertyType().modelName == type.modelName {
-                self.includes.append(relationship.jsonKey)
-            }
-        }
-        return self
-    }
-    
-    public func addIncludeTypes(_ types: [PSJSONApiModel.Type]) -> Self {
-        for type in types {
-            self.addIncludeType(type)
-        }
-        return self
-    }
-    
-    
-    public func sortBy(jsonKey: String, ascending: Bool) -> Self {
-        self.setUpSort(jsonKey: jsonKey, ascending: ascending)
-        return self
-    }
-    
-    internal func setUpSort(jsonKey: String, ascending: Bool) {
-        var queryString = jsonKey
-        if ascending == false {
-            queryString = "-\(queryString)"
-        }
-        
-        if self.querys["sort"] == nil {
-            self.querys["sort"] = [queryString]
-        } else {
-            var array = self.querys["sort"] as! [String]
-            array.append(queryString)
-            self.querys["sort"] = array
-        }
-    }
-
-    
-    public func whereAttribute<V>(jsonKey: String, equals: V) -> Self {
-        for attribute in self.object.attributes {
-            if attribute.jsonKey == jsonKey {
-                if let superAttribute = attribute as? PSAttribute<V> {
-                    superAttribute.value.pointee = equals
-                    let query = superAttribute.serializeToJSON()
-                    self.querys[jsonKey] = query
-                }
-            }
-        }
-        
-        return self
-    }
-    
-    public func whereRelationship(jsonKey: String, idEquals id: String) -> Self {
-        for relationships in self.object.relationships {
-            if relationships.jsonKey == jsonKey {
-                self.querys[jsonKey] = id
-            }
-        }
-        return self
-    }
-    
-    public func whereRelationship<V: PSJSONApiModel>(jsonKey: String, equals obj: V) -> Self {
-        self.whereRelationship(jsonKey: jsonKey, idEquals: obj.id)
-        return self
-    }
-    
-    
-    public func createParameters() -> [String: Any] {
-        var params: [String: Any] = [:]
-        
-        self.addPaginationParamsIfNeeded(currentParams: &params)
-        self.addParametersFromObjectIfNeeded(currentParams: &params)
-        self.addQuerys(currentParams: &params)
-        return params
-    }
-    
-    internal func addPaginationParamsIfNeeded(currentParams params: inout [String: Any]) {
-        if let page = self.page {
-            params["page"] = page
-        }
-        if let perPage = self.perPage {
-            params["per_page"] = perPage
-        }
-    }
-    
-    internal func addParametersFromObjectIfNeeded(currentParams params: inout [String: Any]) {
-        switch self.type {
-        case .createObject, .updateObject:
-            if let p = self.object.getCreateParameters(fromModelName: T.modelName) {
-                params = p
-            }
-        default:
-            return
-        }
-
-    }
-    
-    internal func addQuerys(currentParams params: inout [String: Any]) {
-        for query in self.querys {
-            params[query.key] = query.value
-        }
-    }
-    
-}
-
-
-extension JSONAPIRequest: TargetType {
-    /// The target's base `URL`.
-    public var baseURL: URL {
-        if let settings = self.settings {
-            return URL(string: settings.baseUrl)!;
-        }
-        assertionFailure("The Query request settings were never set")
-        return URL(string: "something has gone wrong")!
-    }
-    
-    /// The path to be appended to `baseURL` to form the full `URL`.
-    public var path: String {
-        switch self.type {
-        case .get:
-            return "/\(T.modelName)"
-        case .createObject:
-            return "/\(T.modelName)"
-        case .updateObject:
-            return "/\(T.modelName)/\(self.object.id)"
-        case .deleteObject:
-            return "/\(T.modelName)/\(self.object.id)"
-        case .getObject:
-            return "/\(T.modelName)/\(self.object.id)"
-        }
-    }
-    
-    /// The HTTP method used in the request.
-    public var method: Moya.Method {
-        switch self.type {
-        case .get:
-            return .get;
-        case .createObject:
-            return .post;
-        case .updateObject:
-            return .patch;
-        case .deleteObject:
-            return .delete
-        case .getObject:
-            return .get
-        }
-    }
-    
-    /// The parameters to be incoded in the request.
-    public var parameters: [String: Any]? {
-        return self.createParameters()
-    }
-    
-    /// The method used for parameter encoding.
-    public var parameterEncoding: ParameterEncoding {
-        switch self.type {
-        case .get:
-            return URLEncoding.default;
-        case .createObject(_):
-            return JSONEncoding.default;
-        case .updateObject(_):
-            return JSONEncoding.default;
-        case .deleteObject(_):
-            return URLEncoding.default;
-        case .getObject(_):
-            return JSONEncoding.default;
-        }
-    }
-    
-    /// Provides stub data for use in testing.
-    public var sampleData: Data {
-        guard let settings = self.settings else {
-            return Data()
-        }
-        switch self.type {
-        case .get:
-            return settings.testingJSON.getListTestData;
-        case .createObject(_):
-            return settings.testingJSON.getCreateTestData;
-        case .updateObject(_):
-            return settings.testingJSON.getCreateTestData;
-        case .deleteObject(_):
-            return settings.testingJSON.deleteTestData;
-        case .getObject(_):
-            return settings.testingJSON.getTestData;
-        }
-    }
-    
-    /// The type of HTTP task to be performed.
-    public var task: Task {
-        return Task.request
-    }
-
-}
-
 
 public enum JSONAPITargetMethod {
     case get

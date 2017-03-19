@@ -191,7 +191,6 @@ class JSONApiTesting: XCTestCase {
 
     func testGetRequest() {
         
-        print(#keyPath(Articles.author))
         
         let exp = self.expectation(description: "will get a list of articles")
         let request = JSONAPIRequest<Articles>.getObjects()
