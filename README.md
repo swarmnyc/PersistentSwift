@@ -144,9 +144,9 @@ open class PSDateAttribute: PSAttribute<Date> {
 ##How to make json api requests
 
 ```swift
-	public struct ArticlesNetworkSettings: PSServiceSettings {
+	public struct ArticlesNetworkSettings: JSONAPIServiceSettings {
         //whether or not you want to stub the request and return test data
-        static var isTesting: Bool {
+        static var stubJSONInRequest: Bool {
             return false; 
         }
  
@@ -156,7 +156,7 @@ open class PSDateAttribute: PSAttribute<Date> {
         }
         
         //you can set a different timeout based on which request is being sent
-        static func getTimeout<Model : PSJSONApiModel, TestD : TestData, S : PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> Double {
+        static func getTimeout<Model : PSJSONApiModel, TestD : TestData, S : JSONAPIServiceSettings>(_ target: JSONAPITargetType<Model, TestD, S>) -> Double {
             switch target {
             case .createObject( _):
                 return 4;
@@ -168,7 +168,7 @@ open class PSDateAttribute: PSAttribute<Date> {
         }
         
         //use the type of request to determine which API token, if any should be sent up
-        static func getAuthToken<Model : PSJSONApiModel, TestD : TestData, S : PSServiceSettings>(_ target: PSServiceMap<Model, TestD, S>) -> String? {
+        static func getAuthToken<Model : PSJSONApiModel, TestD : TestData, S : JSONAPIServiceSettings>(_ target: JSONAPITargetType<Model, TestD, S>) -> String? {
             return nil;
         }
     }
@@ -205,7 +205,7 @@ open class PSDateAttribute: PSAttribute<Date> {
 
 
 	//Create the network manager, used for actually making requests
-	class ArticlesNetworkManager: PSNetworkManager<Article, ArticlesTestData, ArticlesNetworkSettings> {
+	class ArticlesNetworkManager: JSONAPIService<Article, ArticlesTestData, ArticlesNetworkSettings> {
         static var shared: ArticlesNetworkManager = ArticlesNetworkManager();
     }
 

@@ -14,6 +14,7 @@ public protocol PSCachedModel {
     var id: String { get set }
 }
 
+
 open class PSJSONApiModel: NSObject, NSCoding, PSCachedModel {
     
     open class var modelName: String {
@@ -21,13 +22,15 @@ open class PSJSONApiModel: NSObject, NSCoding, PSCachedModel {
         return "";
     }
     
-    public var id: String = "";
     
+    public var id: String = "";
+    /// is true if the object wasn't included in the API response and just contains the id
+    public var isBlank: Bool = false
     
     var attributes: [PSJSONAPIProperty] = [];
     var relationships: [PSJSONAPIProperty] = [];
     
-    override public init() {
+    required override public init() {
         super.init();
         self.register(attributes: &self.attributes, andRelationships: &self.relationships);
     }
@@ -37,7 +40,7 @@ open class PSJSONApiModel: NSObject, NSCoding, PSCachedModel {
     }
     
     
-    public required convenience init?(json: JSON) {
+    public required convenience init?(json: JSON, include: JSON?, objStore: JSONAPIServiceModelStore) {
         self.init();
         
         if let id = json["id"].string {
@@ -52,7 +55,12 @@ open class PSJSONApiModel: NSObject, NSCoding, PSCachedModel {
         for relationship in self.relationships {
             relationship.deserializeFromJSON(rel);
         }
-        
+        if let incl = include {
+            
+            for relationships in self.relationships {
+                relationships.addFromIncluded(incl, objStore: objStore)
+            }
+        }
     }
     
     public required convenience init(coder aDecoder: NSCoder) {
@@ -94,10 +102,18 @@ open class PSJSONApiModel: NSObject, NSCoding, PSCachedModel {
         params["data"] = data;
         
         return params;
-        
-        
-        
     }
+    
+    open func getJSONKeyFromProperty<Property>(_ prop: inout Property) -> String {
+        let pointer = UnsafeMutablePointer<Property>(&prop)
+        for attribute in self.attributes {
+            if let attribute = (attribute as? PSAttribute<Property>) {
+                
+            }
+        }
+        return ""
+    }
+    
     
     open func encode(with aCoder: NSCoder) {
         aCoder.encode(self.id as? Any, forKey: "id");

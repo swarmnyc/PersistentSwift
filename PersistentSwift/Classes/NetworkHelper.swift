@@ -18,10 +18,11 @@ extension Response {
 
 	/// Maps data received from the signal into an object which implements the ALSwiftyJSONAble protocol.
 	/// If the conversion fails, the signal errors.
-	public func map<T:PSJSONApiModel>(to type: T.Type) throws -> T {
+    func map<T:PSJSONApiModel>(to type: T.Type) throws -> T {
+        let objStore: JSONAPIServiceModelStore = JSONAPIServiceModelStore()
 		let jsonObject = try mapJSON()
-
-		guard let mappedObject = T(json: JSON(jsonObject)["data"]) else {
+        let json = JSON(jsonObject)
+        guard let mappedObject = T(json: json["data"], include: json["included"], objStore: objStore) else {
 			throw MoyaError.jsonMapping(self)
 		}
 
@@ -30,12 +31,13 @@ extension Response {
 
 	/// Maps data received from the signal into an array of objects which implement the ALSwiftyJSONAble protocol
 	/// If the conversion fails, the signal errors.
-	public func map<T:PSJSONApiModel>(to type: [T.Type]) throws -> [T] {
+    func map<T:PSJSONApiModel>(to type: [T.Type]) throws -> [T] {
+        let objStore: JSONAPIServiceModelStore = JSONAPIServiceModelStore()
 		let jsonObject = try mapJSON()
-
-		let mappedArray = JSON(jsonObject)["data"];
+        let json = JSON(jsonObject)
+		let mappedArray = json["data"];
 		let mappedObjectsArray = mappedArray.arrayValue.flatMap {
-			T(json: $0)
+            T(json: $0, include: json["included"], objStore: objStore)
 		}
 
 		return mappedObjectsArray
@@ -44,12 +46,17 @@ extension Response {
 }
 
 
-public struct AuthPlugin<T:PSJSONApiModel, D:TestData, S: PSServiceSettings>: PluginType {
-	public let tokenClosure: ((PSServiceMap<T,D,S>) -> String?)
+open class AuthPlugin<T:PSJSONApiModel>: PluginType {
+	public var tokenClosure: ((JSONAPIRequest<T>) -> String?)
 
+    public init(tokenClosure: @escaping ((JSONAPIRequest<T>) -> String?)) {
+        self.tokenClosure = tokenClosure
+    }
+    
+    
 	public func prepare(_ request: URLRequest, target: TargetType) -> URLRequest {
 
-		if let token = tokenClosure(target as! PSServiceMap<T,D,S>) {
+		if let token = tokenClosure(target as! JSONAPIRequest<T>) {
 			var request = request
 			request.addValue("Bearer " + token, forHTTPHeaderField: "Authorization")
 			return request

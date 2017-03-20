@@ -2,7 +2,7 @@ import UIKit
 import XCTest
 import PersistentSwift
 import SwiftyJSON
-
+// swiftlint:disable:next type_body_length
 class Tests: XCTestCase {
 
     class Cache: PSModelCache<TestModel> {
@@ -15,10 +15,8 @@ class Tests: XCTestCase {
         override class var modelName: String {
             return "Test Model"
         }
-        var relToManyId: [String]?
-        var relToMany: [TestModel]?
+        var relToMany: [TestModel] = []
 
-        var relToOneId: String?
         var relToOne: TestModel?
 
         var name: String?
@@ -29,8 +27,8 @@ class Tests: XCTestCase {
             attributes.append(PSAttribute(property: &self.isLive, jsonKey: "isLive"))
 
             //swiftlint:disable:next line_length
-            relationships.append(PSToMany(property: &self.relToMany, idProperty: &self.relToManyId, jsonKey: "relToMany"))
-            relationships.append(PSToOne(property: &self.relToOne, idProperty: &self.relToOneId, jsonKey: "relToOne"))
+            relationships.append(PSToMany(property: &self.relToMany, jsonKey: "relToMany"))
+            relationships.append(PSToOne(property: &self.relToOne, jsonKey: "relToOne"))
         }
 
     }
@@ -40,6 +38,7 @@ class Tests: XCTestCase {
         var pointer: UnsafeMutablePointer<Int?>
         
         init(value: inout Int?) {
+        
             let pointer: UnsafeMutablePointer<Int?> = UnsafeMutablePointer<Int?>(&value)
             pointer.pointee = value
             self.pointer = pointer
@@ -66,7 +65,6 @@ class Tests: XCTestCase {
     }
     
     func testInOut() {
-       
 
         let test: () -> Void = {
             let t = Test()
@@ -84,7 +82,7 @@ class Tests: XCTestCase {
     }
 
     func testInOutString() {
-
+        // swiftlint:disable nesting
         class TestHolder {
             var pointer: UnsafeMutablePointer<String?>
 
@@ -134,18 +132,24 @@ class Tests: XCTestCase {
 
     }
 
-    //
-    //
-
     func testCachedModels() {
 
-        var newModel = TestModel()
+        let newModel = TestModel()
         newModel.name = "test"
         newModel.isLive = false
         cache.addModelToCache(model: newModel)
 
-        newModel.relToOneId = "test"
-        newModel.relToManyId = ["test1, test2"]
+        let relToOneModel = TestModel()
+        relToOneModel.id = "test"
+        newModel.relToOne = relToOneModel
+        
+        let testModel = TestModel()
+        testModel.id = "test1"
+        
+        let testModel2 = TestModel()
+        testModel2.id = "test2"
+        
+        newModel.relToMany = [testModel, testModel2]
 
         let data = NSKeyedArchiver.archivedData(withRootObject: newModel)
 
@@ -155,8 +159,8 @@ class Tests: XCTestCase {
             if let objs = NSKeyedUnarchiver.unarchiveObject(with: dataFromCache) as? TestModel {
                 XCTAssertEqual(newModel.name, objs.name)
                 XCTAssertEqual(newModel.isLive, objs.isLive)
-                XCTAssertEqual(newModel.relToOneId, objs.relToOneId)
-                XCTAssertEqual(newModel.relToManyId!, objs.relToManyId!)
+                XCTAssertEqual(newModel.relToOne?.id, objs.relToOne?.id)
+                XCTAssertEqual(newModel.relToMany.count, objs.relToMany.count)
             } else {
                 XCTAssert(false)
             }
@@ -269,7 +273,7 @@ class Tests: XCTestCase {
         model.name = "hello"
         
         cache.addModelToCache(model: model)
-        _ = cache.saveCacheInBackground().then { Void -> Void in
+        _ = cache.saveCacheInBackground().then { () -> Void in
             self.cache.clearCache()
             self.cache.loadCache()
             
@@ -298,9 +302,8 @@ class Tests: XCTestCase {
         XCTAssertEqual(cache.getModelsFromCache().count, 0)
     }
     
-    
     func testPSDataEventGetData() {
-        var model = TestModel()
+        let model = TestModel()
         model.id = "1"
         model.isLive = true
         model.name = "hello"
@@ -317,7 +320,6 @@ class Tests: XCTestCase {
         XCTAssertEqual(event4.getData(), nil)
         
     }
-    
     
     func testPSDataEventEventType() {
         let model = TestModel()
@@ -368,8 +370,7 @@ class Tests: XCTestCase {
         self.cache.addCallbackOnCacheChange(&callbackAdd)
         self.cache.addCallbackOnCacheChange(&callbackUpdate)
         self.cache.addCallbackOnCacheChange(&callbackDelete)
-        
-        
+    
         let model = TestModel()
         model.id = "jjjj"
         model.name = "hello"
