@@ -31,8 +31,12 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
     
     public typealias ReturnType = [T]
     
-    open static func createSaveRequest(obj: T) -> JSONAPIRequest<T> {
-        return JSONAPIRequest<T>(obj: obj).addType(JSONAPITargetMethod.updateObject)
+    open static func saveObject(obj: T) -> JSONAPIRequestSingle<T> {
+        return JSONAPIRequestSingle<T>(obj: obj).addType(JSONAPITargetMethod.createObject)
+    }
+    
+    open static func updateObject(obj: T) -> JSONAPIRequestSingle<T> {
+        return JSONAPIRequestSingle<T>(obj: obj).addType(JSONAPITargetMethod.updateObject)
     }
     
     open static func getObject(id: String) -> JSONAPIRequestSingle<T> {

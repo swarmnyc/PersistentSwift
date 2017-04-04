@@ -1,13 +1,13 @@
 PODS:
-  - Alamofire (4.3.0)
+  - Alamofire (4.4.0)
   - Fakery (2.0.0)
-  - Moya (8.0.2):
-    - Moya/Core (= 8.0.2)
-  - Moya/Core (8.0.2):
+  - Moya (8.0.3):
+    - Moya/Core (= 8.0.3)
+  - Moya/Core (8.0.3):
     - Alamofire (~> 4.1)
     - Result (~> 3.0)
   - PersistentSwift (0.3):
-    - Moya (= 8.0.2)
+    - Moya (= 8.0.3)
     - PromiseKit (= 4.1.7)
     - SwiftyJSON (= 3.1.4)
   - PromiseKit (4.1.7):
@@ -21,7 +21,7 @@ PODS:
     - PromiseKit/CorePromise
   - PromiseKit/UIKit (4.1.7):
     - PromiseKit/CorePromise
-  - Result (3.1.0)
+  - Result (3.2.1)
   - SwiftyJSON (3.1.4)
 
 DEPENDENCIES:
@@ -30,17 +30,17 @@ DEPENDENCIES:
 
 EXTERNAL SOURCES:
   PersistentSwift:
-    :path: ../
+    :path: "../"
 
 SPEC CHECKSUMS:
-  Alamofire: 856a113053a7bc9cbe5d6367a555d773fc5cfef7
+  Alamofire: dc44b1600b800eb63da6a19039a0083d62a6a62d
   Fakery: 97b99c23937d2e025d9135c75e2b17351ccd5031
-  Moya: 47f61da5b634aa71f676431b64ee0f81e976296d
-  PersistentSwift: 66c3fd47182eebb5b9b9faa2d46b07919b5cb242
+  Moya: d3721622e3cc0cc2f038d69a258686f0b66e7252
+  PersistentSwift: 31fee5ab505e3844e4d8da2975245b096d0bb5dc
   PromiseKit: 779f2e41faf62d854e7593026ddbcb0bb5c5002d
-  Result: 4e3ed5995ed94d0cd6a09be9a431fce3f3624bbf
+  Result: 2453a22e5c5b11c0c3a478736e82cd02f763b781
   SwiftyJSON: c2842d878f95482ffceec5709abc3d05680c0220
 
 PODFILE CHECKSUM: a352bcd64c4b7f9940437310d0f6dad576831986
 
-COCOAPODS: 1.1.1
+COCOAPODS: 1.2.0
