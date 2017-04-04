@@ -14,11 +14,11 @@ import PersistentSwift
 import Alamofire
 
 
-extension Response {
+public extension Response {
 
 	/// Maps data received from the signal into an object which implements the ALSwiftyJSONAble protocol.
 	/// If the conversion fails, the signal errors.
-    func map<T:PSJSONApiModel>(to type: T.Type) throws -> T {
+    public func map<T:PSJSONApiModel>(to type: T.Type) throws -> T {
         let objStore: JSONAPIServiceModelStore = JSONAPIServiceModelStore()
 		let jsonObject = try mapJSON()
         let json = JSON(jsonObject)
@@ -31,7 +31,7 @@ extension Response {
 
 	/// Maps data received from the signal into an array of objects which implement the ALSwiftyJSONAble protocol
 	/// If the conversion fails, the signal errors.
-    func map<T:PSJSONApiModel>(to type: [T.Type]) throws -> [T] {
+    public func map<T:PSJSONApiModel>(to type: [T.Type]) throws -> [T] {
         let objStore: JSONAPIServiceModelStore = JSONAPIServiceModelStore()
 		let jsonObject = try mapJSON()
         let json = JSON(jsonObject)
