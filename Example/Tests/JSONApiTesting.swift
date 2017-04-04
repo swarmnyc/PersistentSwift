@@ -89,6 +89,9 @@ class JSONApiTesting: XCTestCase {
             var settings = JSONAPIServiceSettings()
             settings.baseUrl = "http://google.com"
             settings.spoofReturn = .json
+            settings.moyaProviderPlugins = [
+                NetworkLoggerPlugin(verbose: true)
+            ]
             settings.testingJSON = ArticlesTestData.self
             return settings
         }
