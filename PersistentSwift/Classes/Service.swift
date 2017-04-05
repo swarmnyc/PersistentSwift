@@ -38,8 +38,8 @@ open class JSONAPIService<T: PSJSONApiModel>: PluginType {
     lazy var provider: MoyaProvider<JSONAPIRequest<T>> = self.getProvider();
     
     /// get a MoyaProvider to make API calls
-    func getProvider() -> MoyaProvider<JSONAPIRequest<T>> {
-        let provider = MoyaProvider<JSONAPIRequest<T>>(stubClosure: {
+    public func getProvider<T: TargetType>() -> MoyaProvider<T> {
+        let provider = MoyaProvider<T>(stubClosure: {
             _ in
             if self.settings.spoofReturn == .json {
                 return .immediate;
@@ -50,6 +50,7 @@ open class JSONAPIService<T: PSJSONApiModel>: PluginType {
         )
         return provider;
     }
+
     
     open var getObjectSpoof: T = T()
     open var createObjectSpoof: T = T()
@@ -146,7 +147,7 @@ open class JSONAPIService<T: PSJSONApiModel>: PluginType {
     open func process(_ result: Result<Moya.Response>, target: TargetType) -> Result<Moya.Response> {
         return result
     }
-    
+
     
     //a wrapper for a request which returns a single object, type is the type of request, defined in the API map
     internal func makeRequest(_ type: JSONAPIRequest<T>) -> Promise<T> {
