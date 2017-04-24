@@ -10,11 +10,6 @@ import Foundation
 import Moya
 import Alamofire
 
-open class JSONAPIRequestSingle<T: PSJSONApiModel>: JSONAPIRequest<T> {
-}
-
-open class JSONAPIRequestEmptyResponse<T: PSJSONApiModel>: JSONAPIRequest<T> {
-}
 
 open class JSONAPIRequest<T: PSJSONApiModel> {
     var type: JSONAPITargetMethod
@@ -25,7 +20,7 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
     var page: Int?
     var perPage: Int?
     
-    var filters: [String: Any] = [:]
+    var filters: [JSONAPIFilter] = []
     var queries: [String: Any] = [:]
     
     lazy var mirror: Mirror = Mirror(reflecting: self.object)
@@ -108,12 +103,12 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
             filterstring = "-\(filterstring)"
         }
         
-        if self.filters["sort"] == nil {
-            self.filters["sort"] = [filterstring]
+        if self.queries["sort"] == nil {
+            self.queries["sort"] = [filterstring]
         } else {
-            var array = self.filters["sort"] as! [String]
+            var array = self.queries["sort"] as! [String]
             array.append(filterstring)
-            self.filters["sort"] = array
+            self.queries["sort"] = array
         }
     }
     
@@ -129,25 +124,23 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
         return self
     }
     
-    public func addFilterParamter(toKey key: String, withValue value: [String: Any]) -> Self {
-        if self.filters[key] == nil {
-            self.filters[key] = [String: Any]()
-        }
-        if var dict = self.filters[key] as? [String: Any] {
-            dict.merge(with: value)
-            self.filters[key] = dict
-        }
+    public func addFilter(_ filter: JSONAPIFilter) -> Self {
+        self.filters.append(filter)
         return self
     }
     
     public func whereAttribute<V>(jsonKey: String, equals: V) -> Self {
         for attribute in self.object.attributes {
             if attribute.jsonKey == jsonKey {
-                if let superAttribute = attribute as? PSAttribute<V> {
-                    superAttribute.value.pointee = equals
-                    let query = superAttribute.serializeToJSON()
-                    self.filters[jsonKey] = query
+                guard let superAttribute = attribute as? PSAttribute<V> else {
+                    break
                 }
+                superAttribute.value.pointee = equals
+                if let query = superAttribute.serializeToJSON() {
+                    let filter = JSONAPIEqualsFilter(jsonKey: jsonKey, value: query)
+                    self.filters.append(filter)
+                }
+                
             }
         }
         
@@ -157,7 +150,8 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
     public func whereRelationship(jsonKey: String, idEquals id: String) -> Self {
         for relationships in self.object.relationships {
             if relationships.jsonKey == jsonKey {
-                self.filters[jsonKey] = id
+                let filter = JSONAPIEqualsFilter(jsonKey: jsonKey, value: id)
+                self.filters.append(filter)
             }
         }
         return self
@@ -201,12 +195,9 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
     }
     
     internal func addfilters(currentParams params: inout [String: Any]) {
-        var filters: [String: Any] = [:]
-        let keyName: String = "filter"
-        for query in self.filters {
-            filters[query.key] = query.value
+        for filter in self.filters {
+            filter.addToQuery(params: &params)
         }
-        params[keyName] = filters
     }
     
     internal func addCustomQueries(currentParams params: inout [String: Any]) {

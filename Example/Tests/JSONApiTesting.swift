@@ -23,7 +23,7 @@ public class Articles: PSJSONApiModel {
     static var bodyKey: String = "body"
     static var locationKey: String = "location"
     static var authorKey: String = "author"
-    
+    static var dateKey: String = "date"
     override public class var modelName: String {
         return "articles"
     }
@@ -166,7 +166,7 @@ class JSONApiTesting: XCTestCase {
             .whereAttribute(jsonKey: Articles.titleKey,
                             equals: "testing test test")
         let params = query.createParameters()
-        XCTAssertEqual(params[Articles.titleKey] as? String, "testing test test")
+        XCTAssertEqual((params["filter"] as? [String: Any])?[Articles.titleKey] as? String, "testing test test")
     }
     
     func testWhereAttributeEqualsWithCustomPSAttributeClass() {
@@ -175,7 +175,7 @@ class JSONApiTesting: XCTestCase {
                             equals: CLLocationCoordinate2D(latitude: 100, longitude: 100))
         let params = query.createParameters()
         // swiftlint:disable:next force_cast
-        XCTAssertEqual(params[Articles.locationKey] as! [Double], [100, 100])
+        XCTAssertEqual((params["filter"] as? [String: Any])?[Articles.locationKey] as! [Double], [100, 100])
     }
     
     func testWhereRelationshipsEqualsWithId() {
@@ -183,7 +183,7 @@ class JSONApiTesting: XCTestCase {
         .whereRelationship(jsonKey: Articles.authorKey, idEquals: "test_id")
         
         let params = query.createParameters()
-        XCTAssertEqual(params[Articles.authorKey] as? String, "test_id")
+        XCTAssertEqual((params["filter"] as? [String: Any])?[Articles.authorKey] as? String, "test_id")
     }
 
     func testGetRequest() {
@@ -281,23 +281,25 @@ class JSONApiTesting: XCTestCase {
     }
     
     func testQueryParameterCreation() {
+        let exp = self.expectation(description: "url is set up properly")
         // swiftlint:disable vertical_whitespace
         let request: JSONAPIRequest<Articles> = JSONAPIRequest<Articles>.getObjects()
-            .whereAttribute(jsonKey: Articles.titleKey, equals: "test title")
             .whereAttribute(jsonKey: Articles.bodyKey, equals: "bodyName")
+            .addFilter(JSONAPISimpleSortFilter(jsonKey: Articles.dateKey, value: "1425", operator: .greaterThan))
         
         var settings = JSONAPIServiceSettings()
         settings.spoofReturn = .json
         settings.baseUrl = "http://google.com"
         let testingPlugin = TestingPluginType(inspectRequest: { request in
             print(request.url!.absoluteString)
-            print("URL")
+            XCTAssertEqual(request.url!.absoluteString, "http://google.com/articles?filter%5Bbody%5D=bodyName&filter%5Bsimple%5D%5Bdate%5D%5B%24gt%5D=1425")
+            exp.fulfill()
         })
         settings.moyaProviderPlugins = [testingPlugin]
         let service = JSONAPIService<Articles>(settings: settings)
         _ = service.makeRequest(request: request)
         
-        
+        self.waitForExpectations(timeout: 0.3, handler: nil)
 
     }
     
