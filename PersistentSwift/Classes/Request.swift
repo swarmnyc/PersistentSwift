@@ -90,7 +90,7 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
     
     public func addIncludeTypes(_ types: [PSJSONApiModel.Type]) -> Self {
         for type in types {
-            self.addIncludeType(type)
+            _ = self.addIncludeType(type)
         }
         return self
     }
@@ -177,9 +177,12 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
     }
     
     internal func addQuerys(currentParams params: inout [String: Any]) {
+        var filters: [String: Any] = [:]
+        let keyName: String = "filter"
         for query in self.querys {
-            params[query.key] = query.value
+            filters[query.key] = query.value
         }
+        params[keyName] = filters
     }
     
 }

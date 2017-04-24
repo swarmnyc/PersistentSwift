@@ -16,59 +16,53 @@ import Fakery
 // swiftlint:disable line_length
 // swiftlint:disable type_body_length
 // swiftlint:disable trailing_whitespace
+
+public class Articles: PSJSONApiModel {
+    //json keys
+    static var titleKey: String = "title"
+    static var bodyKey: String = "body"
+    static var locationKey: String = "location"
+    static var authorKey: String = "author"
+    
+    override public class var modelName: String {
+        return "articles"
+    }
+    
+    open var title: String = "test"
+    open var body: String = "body"
+    var author: Author?
+    
+    var location: CLLocationCoordinate2D = CLLocationCoordinate2D()
+    
+    override public func register(attributes: inout [PSJSONAPIProperty], andRelationships relationships: inout [PSJSONAPIProperty]) {
+        attributes.append(PSAttribute<String>(property: &self.body, jsonKey: Articles.bodyKey))
+        attributes.append(PSAttribute<String>(property: &self.title, jsonKey: Articles.titleKey))
+        attributes.append(PSLocationAttribute(property: &self.location, jsonKey: Articles.locationKey))
+        relationships.append(PSToOne<Author>(property: &self.author, jsonKey: Articles.authorKey))
+    }
+}
+
+final class Author: PSJSONApiModel {
+    
+    open var name: String = ""
+    open var age: Int = 0
+    open var gender: String = ""
+    open var articles: [Articles] = []
+    
+    override class var modelName: String {
+        return "authors"
+    }
+    
+    override func register(attributes: inout [PSJSONAPIProperty], andRelationships relationships: inout [PSJSONAPIProperty]) {
+        attributes.append(PSAttribute(property: &self.name, jsonKey: "name"))
+        attributes.append(PSAttribute(property: &self.age, jsonKey: "age"))
+        attributes.append(PSAttribute(property: &self.gender, jsonKey: "gender"))
+        relationships.append(PSToMany(property: &self.articles, jsonKey: "articles"))
+    }
+    
+}
 class JSONApiTesting: XCTestCase {
-   
     
-    
-    final class Author: PSJSONApiModel {
-
-        open var name: String = ""
-        open var age: Int = 0
-        open var gender: String = ""
-        open var articles: [Articles] = []
-        
-        override class var modelName: String {
-            return "authors"
-        }
-       
-        override func register(attributes: inout [PSJSONAPIProperty], andRelationships relationships: inout [PSJSONAPIProperty]) {
-            attributes.append(PSAttribute(property: &self.name, jsonKey: "name"))
-            attributes.append(PSAttribute(property: &self.age, jsonKey: "age"))
-            attributes.append(PSAttribute(property: &self.gender, jsonKey: "gender"))
-            relationships.append(PSToMany(property: &self.articles, jsonKey: "articles"))
-        }
-
-    }
-    
-    enum TestingEnum {
-        case test
-    }
-    
-    public class Articles: PSJSONApiModel {
-        //json keys
-        static var titleKey: String = "title"
-        static var bodyKey: String = "body"
-        static var locationKey: String = "location"
-        static var authorKey: String = "author"
-        
-        override class var modelName: String {
-            return "articles"
-        }
-      
-        open var title: String = "test"
-        open var body: String = "body"
-        var author: Author?
-        
-        
-        var location: CLLocationCoordinate2D = CLLocationCoordinate2D()
-
-        override public func register(attributes: inout [PSJSONAPIProperty], andRelationships relationships: inout [PSJSONAPIProperty]) {
-            attributes.append(PSAttribute<String>(property: &self.body, jsonKey: Articles.bodyKey))
-            attributes.append(PSAttribute<String>(property: &self.title, jsonKey: Articles.titleKey))
-            attributes.append(PSLocationAttribute(property: &self.location, jsonKey: Articles.locationKey))
-            relationships.append(PSToOne<Author>(property: &self.author, jsonKey: Articles.authorKey))
-        }
-    }
     class MultiAuthorPost: Articles {
         var authors: [Author] = []
         // swiftlint:disable:next line_length
@@ -286,9 +280,34 @@ class JSONApiTesting: XCTestCase {
         self.waitForExpectations(timeout: 1000, handler: nil)
     }
     
-    func testEqualsFilter() {
+    func testQueryParameterCreation() {
+        // swiftlint:disable vertical_whitespace
+        let request: JSONAPIRequest<Articles> = JSONAPIRequest<Articles>.getObjects()
+            .whereAttribute(jsonKey: Articles.titleKey, equals: "test title")
+            .whereAttribute(jsonKey: Articles.bodyKey, equals: "bodyName")
+        
+        var settings = JSONAPIServiceSettings()
+        settings.spoofReturn = .json
+        settings.baseUrl = "http://google.com"
+        let testingPlugin = TestingPluginType(inspectRequest: { request in
+            print(request.url!.absoluteString)
+            print("URL")
+        })
+        settings.moyaProviderPlugins = [testingPlugin]
+        let service = JSONAPIService<Articles>(settings: settings)
+        _ = service.makeRequest(request: request)
+        
         
 
+    }
+    
+    
+    struct TestingPluginType: PluginType {
+        var inspectRequest: ((URLRequest) -> Void)
+        func prepare(_ request: URLRequest, target: TargetType) -> URLRequest {
+            self.inspectRequest(request)
+            return request
+        }
     }
     
 //    func testGetPaginatedListWithParams() {
@@ -488,5 +507,7 @@ class JSONApiTesting: XCTestCase {
         }
         return articles
     }
-    
+
 }
+    
+
