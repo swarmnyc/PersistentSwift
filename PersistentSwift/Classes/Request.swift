@@ -25,7 +25,8 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
     var page: Int?
     var perPage: Int?
     
-    var querys: [String: Any] = [:]
+    var filters: [String: Any] = [:]
+    var queries: [String: Any] = [:]
     
     lazy var mirror: Mirror = Mirror(reflecting: self.object)
     
@@ -102,28 +103,39 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
     }
     
     internal func setUpSort(jsonKey: String, ascending: Bool) {
-        var queryString = jsonKey
+        var filterstring = jsonKey
         if ascending == false {
-            queryString = "-\(queryString)"
+            filterstring = "-\(filterstring)"
         }
         
-        if self.querys["sort"] == nil {
-            self.querys["sort"] = [queryString]
+        if self.filters["sort"] == nil {
+            self.filters["sort"] = [filterstring]
         } else {
-            var array = self.querys["sort"] as! [String]
-            array.append(queryString)
-            self.querys["sort"] = array
+            var array = self.filters["sort"] as! [String]
+            array.append(filterstring)
+            self.filters["sort"] = array
         }
     }
     
     
-    public func addFilterParamter(toKey key: String, withValue value: [String: Any]) -> Self {
-        if self.querys[key] == nil {
-            self.querys[key] = [String: Any]()
+    public func addCustomQueryParameter(toKey key: String, withValue value: [String: Any]) -> Self {
+        if self.queries[key] == nil {
+            self.queries[key] = [String: Any]()
         }
-        if var dict = self.querys[key] as? [String: Any] {
+        if var dict = self.queries[key] as? [String: Any] {
             dict.merge(with: value)
-            self.querys[key] = dict
+            self.queries[key] = dict
+        }
+        return self
+    }
+    
+    public func addFilterParamter(toKey key: String, withValue value: [String: Any]) -> Self {
+        if self.filters[key] == nil {
+            self.filters[key] = [String: Any]()
+        }
+        if var dict = self.filters[key] as? [String: Any] {
+            dict.merge(with: value)
+            self.filters[key] = dict
         }
         return self
     }
@@ -134,7 +146,7 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
                 if let superAttribute = attribute as? PSAttribute<V> {
                     superAttribute.value.pointee = equals
                     let query = superAttribute.serializeToJSON()
-                    self.querys[jsonKey] = query
+                    self.filters[jsonKey] = query
                 }
             }
         }
@@ -145,7 +157,7 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
     public func whereRelationship(jsonKey: String, idEquals id: String) -> Self {
         for relationships in self.object.relationships {
             if relationships.jsonKey == jsonKey {
-                self.querys[jsonKey] = id
+                self.filters[jsonKey] = id
             }
         }
         return self
@@ -162,7 +174,8 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
         
         self.addPaginationParamsIfNeeded(currentParams: &params)
         self.addParametersFromObjectIfNeeded(currentParams: &params)
-        self.addQuerys(currentParams: &params)
+        self.addCustomQueries(currentParams: &params)
+        self.addfilters(currentParams: &params)
         return params
     }
     
@@ -187,13 +200,17 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
         
     }
     
-    internal func addQuerys(currentParams params: inout [String: Any]) {
+    internal func addfilters(currentParams params: inout [String: Any]) {
         var filters: [String: Any] = [:]
         let keyName: String = "filter"
-        for query in self.querys {
+        for query in self.filters {
             filters[query.key] = query.value
         }
         params[keyName] = filters
+    }
+    
+    internal func addCustomQueries(currentParams params: inout [String: Any]) {
+        params.merge(with: self.queries)
     }
     
 }
