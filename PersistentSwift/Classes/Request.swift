@@ -117,6 +117,17 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
     }
     
     
+    public func addFilterParamter(toKey key: String, withValue value: [String: Any]) -> Self {
+        if self.querys[key] == nil {
+            self.querys[key] = [String: Any]()
+        }
+        if var dict = self.querys[key] as? [String: Any] {
+            dict.merge(with: value)
+            self.querys[key] = dict
+        }
+        return self
+    }
+    
     public func whereAttribute<V>(jsonKey: String, equals: V) -> Self {
         for attribute in self.object.attributes {
             if attribute.jsonKey == jsonKey {
@@ -275,4 +286,10 @@ extension JSONAPIRequest: TargetType {
         return Task.request
     }
     
+}
+
+extension Dictionary {
+    mutating func merge(with dictionary: Dictionary) {
+        dictionary.forEach { updateValue($1, forKey: $0) }
+    }
 }
