@@ -104,15 +104,6 @@ open class PSJSONApiModel: NSObject, NSCoding, PSCachedModel {
         return params;
     }
     
-    open func getJSONKeyFromProperty<Property>(_ prop: inout Property) -> String {
-        let pointer = UnsafeMutablePointer<Property>(&prop)
-        for attribute in self.attributes {
-            if let attribute = (attribute as? PSAttribute<Property>) {
-                
-            }
-        }
-        return ""
-    }
     
     
     open func encode(with aCoder: NSCoder) {

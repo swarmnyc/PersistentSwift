@@ -31,7 +31,7 @@ public class Articles: PSJSONApiModel {
     open var title: String = "test"
     open var body: String = "body"
     var author: Author?
-    
+    var date: Date?
     var location: CLLocationCoordinate2D = CLLocationCoordinate2D()
     
     override public func register(attributes: inout [PSJSONAPIProperty], andRelationships relationships: inout [PSJSONAPIProperty]) {
@@ -285,14 +285,17 @@ class JSONApiTesting: XCTestCase {
         // swiftlint:disable vertical_whitespace
         let request: JSONAPIRequest<Articles> = JSONAPIRequest<Articles>.getObjects()
             .whereAttribute(jsonKey: Articles.bodyKey, equals: "bodyName")
-            .addFilter(JSONAPISimpleSortFilter(jsonKey: Articles.dateKey, value: "1425", operator: .greaterThan))
+            .addFilter(JSONAPISimpleSortFilter(jsonKey: Articles.locationKey,
+                                               value: CLLocationCoordinate2D(latitude: 100, longitude: 100),
+                                               operator: .greaterThan))
         
         var settings = JSONAPIServiceSettings()
         settings.spoofReturn = .json
         settings.baseUrl = "http://google.com"
         let testingPlugin = TestingPluginType(inspectRequest: { request in
             print(request.url!.absoluteString)
-            XCTAssertEqual(request.url!.absoluteString, "http://google.com/articles?filter%5Bbody%5D=bodyName&filter%5Bsimple%5D%5Bdate%5D%5B%24gt%5D=1425")
+            XCTAssertEqual(request.url!.absoluteString,
+                           "http://google.com/articles?filter%5Bbody%5D=bodyName&filter%5Bsimple%5D%5Blocation%5D%5B%24gt%5D%5B%5D=100&filter%5Bsimple%5D%5Blocation%5D%5B%24gt%5D%5B%5D=100")
             exp.fulfill()
         })
         settings.moyaProviderPlugins = [testingPlugin]
@@ -312,33 +315,6 @@ class JSONApiTesting: XCTestCase {
         }
     }
     
-//    func testGetPaginatedListWithParams() {
-//        let exp = self.expectation(description: "will get a list of articles")
-//        let params: [String: Any] = ["test": "test"]
-//        ArticlesNetworkManager.shared.getPaginatedList(page: 2,
-//                                                       limit: 10,
-//                                                       params: params).then(execute: { articles -> Void in
-//            XCTAssertEqual(articles.count, 1)
-//            XCTAssertEqual(articles[0].title, "JSON API paints my bikeshed!")
-//            XCTAssertEqual(articles[0].body, "The shortest article. Ever.")
-//            exp.fulfill()
-//        }).catch { _ in
-//            XCTAssert(false)
-//        }
-//        self.waitForExpectations(timeout: 15, handler: nil)
-//    }
-//    
-//    func testPaginatedParams() {
-//        typealias APIMap = JSONAPITargetType<Articles, ArticlesTestData, ArticleSettings>
-//        let paginatedParams = APIMap.getListPaginated(page: 2, limit: 10, params: ["test": "test"])
-//        // swiftlint:disable:next force_cast
-//        XCTAssertEqual((paginatedParams.parameters!["page"] as! Int), 2)
-//        // swiftlint:disable:next force_cast
-//        XCTAssertEqual((paginatedParams.parameters!["per_page"] as! Int), 10)
-//        // swiftlint:disable:next force_cast
-//        XCTAssertEqual((paginatedParams.parameters!["test"] as! String), "test")
-//
-//    }
 
     func testCreatingPostParams() {
 

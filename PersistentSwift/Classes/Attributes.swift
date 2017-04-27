@@ -17,6 +17,7 @@ public protocol PSJSONAPIProperty: class {
     ///
     /// - Returns: Any representation of the property
     func serializeToJSON() -> Any?
+    func serializeToJSON<V>(fromValue value: V) -> Any?
     /// Any transforms necessary from the json to assing a value to the pointer
     ///
     /// - Parameter json: the json from the request
@@ -45,6 +46,17 @@ extension PSJSONAPIWithGet {
     
     fileprivate func isIdEqual(json: JSON, value: PSJSONApiModel) -> Bool {
         return json["id"].string == value.id
+    }
+    
+    public func serializeToJSON<V>(fromValue value: V) -> Any? {
+        if var value = value as? ValueType {
+            let oldValue = self.value
+            self.value = UnsafeMutablePointer<ValueType>(&value)
+            let json = self.serializeToJSON()
+            self.value = oldValue
+            return json
+        }
+        return nil
     }
 }
 
@@ -112,6 +124,8 @@ open class PSAttribute<T>: PSJSONAPIWithGet {
         }
         return false
     }
+    
+    
     
 //    public func isEqualToProperty(_ property: inout Property) -> Bool {
 //        

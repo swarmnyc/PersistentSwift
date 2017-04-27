@@ -23,6 +23,7 @@ public struct JSONAPIServiceSettings {
     public var timeoutClosure: ((JSONAPITargetMethod) -> Double)?
     public var headersClosure: ((JSONAPITargetMethod) -> [String: String])?
     public var moyaProviderPlugins: [PluginType] = []
+    public var encodingManager: JSONAPIParamEncodingOptions = DefaultJSONAPIParamEncodingOptions()
     
     public init() {
         

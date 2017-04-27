@@ -14,13 +14,13 @@ import Alamofire
 open class JSONAPIRequest<T: PSJSONApiModel> {
     var type: JSONAPITargetMethod
     var settings: JSONAPIServiceSettings?
-    var object: T
+    public var object: T
     var includes: [String] = []
     
     var page: Int?
     var perPage: Int?
     
-    var filters: [JSONAPIFilter] = []
+    var filters: [JSONAPIParamValue] = []
     var queries: [String: Any] = [:]
     
     lazy var mirror: Mirror = Mirror(reflecting: self.object)
@@ -124,7 +124,7 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
         return self
     }
     
-    public func addFilter(_ filter: JSONAPIFilter) -> Self {
+    public func addFilter(_ filter: JSONAPIParamValue) -> Self {
         self.filters.append(filter)
         return self
     }
@@ -196,12 +196,29 @@ open class JSONAPIRequest<T: PSJSONApiModel> {
     
     internal func addfilters(currentParams params: inout [String: Any]) {
         for filter in self.filters {
-            filter.addToQuery(params: &params)
+            if let property = self.getProperty(forJsonKey: filter.jsonKey) {
+                filter.addToQuery(withProperty: property, params: &params)
+            }
         }
     }
     
     internal func addCustomQueries(currentParams params: inout [String: Any]) {
         params.merge(with: self.queries)
+    }
+    
+    
+    fileprivate func getProperty(forJsonKey jsonKey: String) -> PSJSONAPIProperty? {
+        for attribute in self.object.attributes {
+            if attribute.jsonKey == jsonKey {
+                return attribute
+            }
+        }
+        for relationship in self.object.relationships {
+            if relationship.jsonKey == jsonKey {
+                return relationship
+            }
+        }
+        return nil
     }
     
 }
@@ -256,6 +273,9 @@ extension JSONAPIRequest: TargetType {
     
     /// The method used for parameter encoding.
     public var parameterEncoding: ParameterEncoding {
+        if let settings = self.settings {
+            return settings.encodingManager.encoding(forTargetType: self)
+        }
         switch self.type {
         case .get:
             return URLEncoding.default;
@@ -298,6 +318,8 @@ extension JSONAPIRequest: TargetType {
 
 extension Dictionary {
     mutating func merge(with dictionary: Dictionary) {
-        dictionary.forEach { updateValue($1, forKey: $0) }
+        for (key, value) in dictionary {
+            self[key] = value
+        }
     }
 }
