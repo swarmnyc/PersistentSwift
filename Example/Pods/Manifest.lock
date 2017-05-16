@@ -21,7 +21,7 @@ PODS:
     - PromiseKit/CorePromise
   - PromiseKit/UIKit (4.1.7):
     - PromiseKit/CorePromise
-  - Result (3.2.1)
+  - Result (3.2.2)
   - SwiftyJSON (3.1.4)
 
 DEPENDENCIES:
@@ -30,7 +30,7 @@ DEPENDENCIES:
 
 EXTERNAL SOURCES:
   PersistentSwift:
-    :path: "../"
+    :path: ../
 
 SPEC CHECKSUMS:
   Alamofire: dc44b1600b800eb63da6a19039a0083d62a6a62d
@@ -38,9 +38,9 @@ SPEC CHECKSUMS:
   Moya: d3721622e3cc0cc2f038d69a258686f0b66e7252
   PersistentSwift: 31fee5ab505e3844e4d8da2975245b096d0bb5dc
   PromiseKit: 779f2e41faf62d854e7593026ddbcb0bb5c5002d
-  Result: 2453a22e5c5b11c0c3a478736e82cd02f763b781
+  Result: 4edd39003fdccf281d418ee1b006571f70123250
   SwiftyJSON: c2842d878f95482ffceec5709abc3d05680c0220
 
-PODFILE CHECKSUM: a352bcd64c4b7f9940437310d0f6dad576831986
+PODFILE CHECKSUM: 840c6844362a99c91ab64ccd7398d76161efeadc
 
 COCOAPODS: 1.2.1
