@@ -231,35 +231,35 @@ open class JSONAPIService<T: PSJSONApiModel>: PluginType {
     }
     
     
-    //a wrapper for a request which returns an array of objects
-    internal func makeRequestArray(_ type: JSONAPIRequest<T>) -> Promise<[T]> {
-        let promise = Promise<[T]>.pending();
-        self.provider.request(type, completion: {
-            result in
-            switch result {
-            case let .success(moyaResponse):
-                do {
-                    _ = try moyaResponse.filterSuccessfulStatusAndRedirectCodes();
-                    let objects: [T] = try moyaResponse.map(to: [T.self]);
-                    promise.fulfill(objects);
-                }
-                catch {
-                    print(error);
-                    promise.reject(error);
-                }
-                break;
-            case let .failure(error):
-                promise.reject(error);
-                break;
-            }
-        });
-        
-        return promise.promise;
-    }
-    
+	//a wrapper for a request which returns an array of objects
+	internal func makeRequestArray(_ type: JSONAPIRequest<T>) -> Promise<[T]> {
+		let promise = Promise<[T]>.pending()
+		Background.runInBackground {
+			self.provider.request(type) { result in
+				switch result {
+				case let .success(moyaResponse):
+					do {
+						_ = try moyaResponse.filterSuccessfulStatusAndRedirectCodes()
+						let objects: [T] = try moyaResponse.map(to: [T.self])
+						Background.runInMainThread {
+							promise.fulfill(objects)
+						}
+					} catch {
+						print(error)
+						Background.runInMainThread {
+							promise.reject(error)
+						}
+					}
+				case let .failure(error):
+					Background.runInMainThread {
+						promise.reject(error)
+					}
+				}
+			}
+		}
+		return promise.promise
+	}
 }
-
-
 
 public class JSONAPIServiceModelStore {
     internal var objStore: [String: [String: PSJSONApiModel]] = [:]
