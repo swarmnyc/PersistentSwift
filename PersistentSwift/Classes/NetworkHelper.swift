@@ -10,9 +10,6 @@ import Foundation
 import Moya
 import SwiftyJSON
 import PromiseKit
-import PersistentSwift
-import Alamofire
-
 
 public extension Response {
 

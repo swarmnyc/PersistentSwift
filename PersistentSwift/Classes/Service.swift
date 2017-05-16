@@ -10,7 +10,6 @@ import Foundation
 import Moya
 import PromiseKit
 
-
 public enum SpoofReturn {
 	case none
 	case json
@@ -62,7 +61,7 @@ open class JSONAPIService<T: PSJSONApiModel>: PluginType {
 	
 	
 	open func makeRequest(request: JSONAPIRequestSingle<T>) -> Promise<T> {
-		var request = request.addSettings(self.settings)
+		let request = request.addSettings(self.settings)
 		if self.settings.spoofReturn == .objects {
 			return self.makeSingleRequestSpoof(target: request.type)
 		}
@@ -70,7 +69,7 @@ open class JSONAPIService<T: PSJSONApiModel>: PluginType {
 	}
 	
 	open func makeRequest(request: JSONAPIRequestEmptyResponse<T>) -> Promise<Void> {
-		var request = request.addSettings(self.settings)
+		let request = request.addSettings(self.settings)
 		if self.settings.spoofReturn == .objects {
 			return Promise<Void>(value: ())
 		}
@@ -78,7 +77,7 @@ open class JSONAPIService<T: PSJSONApiModel>: PluginType {
 	}
 	
 	open func makeRequest(request: JSONAPIRequest<T>) -> Promise<[T]> {
-		var request = request.addSettings(self.settings)
+		let request = request.addSettings(self.settings)
 		if self.settings.spoofReturn == .objects {
 			return self.makeArrayRequestSpoof(tagert: request.type)
 		}
@@ -152,7 +151,7 @@ open class JSONAPIService<T: PSJSONApiModel>: PluginType {
 		DispatchQueue.main.async {
 			UIApplication.shared.isNetworkActivityIndicatorVisible = true
 		}
-		let pending: Promise.PendingTuple = Promise<T>.pending()
+		let pending = Promise<T>.pending()
 		self.provider.request(type) { result in
 			DispatchQueue.global(qos: .utility).async {
 				switch result {
@@ -179,97 +178,93 @@ open class JSONAPIService<T: PSJSONApiModel>: PluginType {
 					}
 				}
 			}
-			
 		}
 		return pending.promise
 	}
 	
-		internal func makeRequestNoObjectReturn(_ type: JSONAPIRequest<T>) -> Promise<Void> {
-			DispatchQueue.main.async {
-				UIApplication.shared.isNetworkActivityIndicatorVisible = true;
-			}
-			let pending: Promise.PendingTuple = Promise<T>.pending()
-			self.provider.request(type) { result in
-				DispatchQueue.global(qos: .utility).async {
-					switch result {
-					case let .success(moyaResponse):
-						do {
-							_ = try moyaResponse.filterSuccessfulStatusAndRedirectCodes()
-							DispatchQueue.main.async {
-								UIApplication.shared.isNetworkActivityIndicatorVisible = false
-								pending.fulfill()
-							}
-						} catch {
-							DispatchQueue.main.async {
-								print(error)
-								UIApplication.shared.isNetworkActivityIndicatorVisible = false
-								pending.reject(error)
-							}
-						}
-					case let .failure(error):
+	internal func makeRequestNoObjectReturn(_ type: JSONAPIRequest<T>) -> Promise<Void> {
+		DispatchQueue.main.async {
+			UIApplication.shared.isNetworkActivityIndicatorVisible = true;
+		}
+		let pending = Promise<Void>.pending()
+		self.provider.request(type) { result in
+			DispatchQueue.global(qos: .utility).async {
+				switch result {
+				case let .success(moyaResponse):
+					do {
+						_ = try moyaResponse.filterSuccessfulStatusAndRedirectCodes()
 						DispatchQueue.main.async {
+							UIApplication.shared.isNetworkActivityIndicatorVisible = false
+							pending.fulfill()
+						}
+					} catch {
+						DispatchQueue.main.async {
+							print(error)
 							UIApplication.shared.isNetworkActivityIndicatorVisible = false
 							pending.reject(error)
 						}
 					}
-				}
-			}
-			return pending.promise
-		}
-		
-		
-		//a wrapper for a request which returns an array of objects
-		internal func makeRequestArray(_ type: JSONAPIRequest<T>) -> Promise<[T]> {
-			let pending: Promise.PendingTuple = Promise<T>.pending()
-			self.provider.request(type) { result in
-				DispatchQueue.global(qos: .utility).async {
-					switch result {
-					case let .success(moyaResponse):
-						do {
-							_ = try moyaResponse.filterSuccessfulStatusAndRedirectCodes()
-							let objects: [T] = try moyaResponse.map(to: [T.self])
-							DispatchQueue.main.async {
-								pending.fulfill(objects)
-							}
-						} catch {
-							DispatchQueue.main.async {
-								print(error)
-								pending.reject(error)
-							}
-						}
-					case let .failure(error):
-						DispatchQueue.main.async {
-							pending.reject(error)
-						}
+				case let .failure(error):
+					DispatchQueue.main.async {
+						UIApplication.shared.isNetworkActivityIndicatorVisible = false
+						pending.reject(error)
 					}
 				}
 			}
-			return pending.promise
 		}
+		return pending.promise
 	}
 	
-	public class JSONAPIServiceModelStore {
-		internal var objStore: [String: [String: PSJSONApiModel]] = [:]
-		
-		func addObj<T: PSJSONApiModel>(_ obj: T) {
-			if self.objStore[T.modelName] == nil {
-				self.objStore[T.modelName] = [:]
+	//a wrapper for a request which returns an array of objects
+	internal func makeRequestArray(_ type: JSONAPIRequest<T>) -> Promise<[T]> {
+		let pending = Promise<[T]>.pending()
+		self.provider.request(type) { result in
+			DispatchQueue.global(qos: .utility).async {
+				switch result {
+				case let .success(moyaResponse):
+					do {
+						_ = try moyaResponse.filterSuccessfulStatusAndRedirectCodes()
+						let objects: [T] = try moyaResponse.map(to: [T.self])
+						DispatchQueue.main.async {
+							pending.fulfill(objects)
+						}
+					} catch {
+						DispatchQueue.main.async {
+							print(error)
+							pending.reject(error)
+						}
+					}
+				case let .failure(error):
+					DispatchQueue.main.async {
+						pending.reject(error)
+					}
+				}
 			}
-			self.objStore[T.modelName]?[obj.id] = obj
 		}
-		
-		func getObj<T: PSJSONApiModel>(byId id: String) -> T? {
-			return self.objStore[T.modelName]?[id] as? T
-		}
-		
+		return pending.promise
 	}
-	
-	public enum JSONAPITargetMethod {
-		case get
-		case createObject
-		case updateObject
-		case deleteObject
-		case getObject
 }
 
+public class JSONAPIServiceModelStore {
+	internal var objStore: [String: [String: PSJSONApiModel]] = [:]
+	
+	func addObj<T: PSJSONApiModel>(_ obj: T) {
+		if self.objStore[T.modelName] == nil {
+			self.objStore[T.modelName] = [:]
+		}
+		self.objStore[T.modelName]?[obj.id] = obj
+	}
+	
+	func getObj<T: PSJSONApiModel>(byId id: String) -> T? {
+		return self.objStore[T.modelName]?[id] as? T
+	}
+	
+}
 
+public enum JSONAPITargetMethod {
+	case get
+	case createObject
+	case updateObject
+	case deleteObject
+	case getObject
+}
