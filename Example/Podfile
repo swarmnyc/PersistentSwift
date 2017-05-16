@@ -6,7 +6,5 @@ target 'PersistentSwift_Example' do
   target 'PersistentSwift_Tests' do
     inherit! :search_paths
     pod 'PersistentSwift', :path => '../'
-
-    
   end
 end

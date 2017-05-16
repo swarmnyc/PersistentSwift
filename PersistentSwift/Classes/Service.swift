@@ -10,7 +10,6 @@ import Foundation
 import Moya
 import PromiseKit
 
-
 public enum SpoofReturn {
 	case none
 	case json
@@ -24,30 +23,28 @@ public struct JSONAPIServiceSettings {
 	public var headersClosure: ((JSONAPITargetMethod) -> [String: String])?
 	public var moyaProviderPlugins: [PluginType] = []
 	
-	public init() {
-		
-	}
+	// MARK: Initialization
+	
+	public init() {}
 }
 
 //Generic Network Manager
 open class JSONAPIService<T: PSJSONApiModel>: PluginType {
 	
-	
 	var settings: JSONAPIServiceSettings
+	
 	//the actual object used to make the requests
 	lazy var provider: MoyaProvider<JSONAPIRequest<T>> = self.getProvider();
 	
 	/// get a MoyaProvider to make API calls
 	public func getProvider<T: TargetType>() -> MoyaProvider<T> {
-		let provider = MoyaProvider<T>(stubClosure: {
-			_ in
+		let provider = MoyaProvider<T>(stubClosure: { _ in
 			if self.settings.spoofReturn == .json {
 				return .immediate;
 			} else {
 				return .never
 			}
-		}, plugins: [self] + self.settings.moyaProviderPlugins
-		)
+		}, plugins: [self] + self.settings.moyaProviderPlugins)
 		return provider;
 	}
 	
@@ -64,7 +61,7 @@ open class JSONAPIService<T: PSJSONApiModel>: PluginType {
 	
 	
 	open func makeRequest(request: JSONAPIRequestSingle<T>) -> Promise<T> {
-		var request = request.addSettings(self.settings)
+		let request = request.addSettings(self.settings)
 		if self.settings.spoofReturn == .objects {
 			return self.makeSingleRequestSpoof(target: request.type)
 		}
@@ -72,7 +69,7 @@ open class JSONAPIService<T: PSJSONApiModel>: PluginType {
 	}
 	
 	open func makeRequest(request: JSONAPIRequestEmptyResponse<T>) -> Promise<Void> {
-		var request = request.addSettings(self.settings)
+		let request = request.addSettings(self.settings)
 		if self.settings.spoofReturn == .objects {
 			return Promise<Void>(value: ())
 		}
@@ -80,7 +77,7 @@ open class JSONAPIService<T: PSJSONApiModel>: PluginType {
 	}
 	
 	open func makeRequest(request: JSONAPIRequest<T>) -> Promise<[T]> {
-		var request = request.addSettings(self.settings)
+		let request = request.addSettings(self.settings)
 		if self.settings.spoofReturn == .objects {
 			return self.makeArrayRequestSpoof(tagert: request.type)
 		}
@@ -151,118 +148,102 @@ open class JSONAPIService<T: PSJSONApiModel>: PluginType {
 	
 	//a wrapper for a request which returns a single object, type is the type of request, defined in the API map
 	internal func makeRequest(_ type: JSONAPIRequest<T>) -> Promise<T> {
-		Background.runInMainThread {
-			UIApplication.shared.isNetworkActivityIndicatorVisible = true;
+		DispatchQueue.main.async {
+			UIApplication.shared.isNetworkActivityIndicatorVisible = true
 		}
-		let promise = Promise<T>.pending();
-		self.provider.request(type, completion: {
-			result in
-			switch result {
-			case let .success(moyaResponse):
-				Background.runInBackground {
-					
+		let pending = Promise<T>.pending()
+		self.provider.request(type) { result in
+			DispatchQueue.global(qos: .utility).async {
+				switch result {
+				case let .success(moyaResponse):
 					do {
-						try moyaResponse.filterSuccessfulStatusAndRedirectCodes();
-						let object: T = try moyaResponse.map(to: T.self);
-						Background.runInMainThread {
+						_ = try moyaResponse.filterSuccessfulStatusAndRedirectCodes()
+						let object: T = try moyaResponse.map(to: T.self)
+						DispatchQueue.main.async {
+							UIApplication.shared.isNetworkActivityIndicatorVisible = false
+							pending.fulfill(object)
+						}
+					} catch {
+						DispatchQueue.main.async {
+							print(error)
+							print(type)
 							UIApplication.shared.isNetworkActivityIndicatorVisible = false;
-							promise.fulfill(object);
+							pending.reject(error)
 						}
 					}
-					catch {
-						print(error);
-						print(type);
-						Background.runInMainThread {
-							UIApplication.shared.isNetworkActivityIndicatorVisible = false;
-							promise.reject(error);
-						}
+				case let .failure(error):
+					DispatchQueue.main.async {
+						UIApplication.shared.isNetworkActivityIndicatorVisible = false
+						pending.reject(error)
 					}
 				}
-				break;
-			case let .failure(error):
-				Background.runInMainThread {
-					UIApplication.shared.isNetworkActivityIndicatorVisible = false;
-					promise.reject(error);
-				}
-				break;
 			}
-		});
-		return promise.promise;
+		}
+		return pending.promise
 	}
 	
 	internal func makeRequestNoObjectReturn(_ type: JSONAPIRequest<T>) -> Promise<Void> {
-		Background.runInMainThread {
+		DispatchQueue.main.async {
 			UIApplication.shared.isNetworkActivityIndicatorVisible = true;
 		}
-		let promise = Promise<Void>.pending();
-		Background.runInBackground {
-			self.provider.request(type, completion: { result in
+		let pending = Promise<Void>.pending()
+		self.provider.request(type) { result in
+			DispatchQueue.global(qos: .utility).async {
 				switch result {
 				case let .success(moyaResponse):
 					do {
-						try moyaResponse.filterSuccessfulStatusAndRedirectCodes();
-						Background.runInMainThread {
-							UIApplication.shared.isNetworkActivityIndicatorVisible = false;
-							promise.fulfill();
+						_ = try moyaResponse.filterSuccessfulStatusAndRedirectCodes()
+						DispatchQueue.main.async {
+							UIApplication.shared.isNetworkActivityIndicatorVisible = false
+							pending.fulfill()
 						}
-						
-					}
-					catch {
-						print(error);
-						Background.runInMainThread {
-							UIApplication.shared.isNetworkActivityIndicatorVisible = false;
-							promise.reject(error);
+					} catch {
+						DispatchQueue.main.async {
+							print(error)
+							UIApplication.shared.isNetworkActivityIndicatorVisible = false
+							pending.reject(error)
 						}
 					}
-					break;
 				case let .failure(error):
-					Background.runInMainThread {
-						UIApplication.shared.isNetworkActivityIndicatorVisible = false;
-						promise.reject(error);
-					}
-					break;
-				}
-			});
-		}
-		
-		return promise.promise;
-	}
-	
-	
-	//a wrapper for a request which returns an array of objects
-	internal func makeRequestArray(_ type: JSONAPIRequest<T>) -> Promise<[T]> {
-		let promise = Promise<[T]>.pending();
-		self.provider.request(type, completion: { result in
-			Background.runInBackground {
-				switch result {
-				case let .success(moyaResponse):
-					do {
-						_ = try moyaResponse.filterSuccessfulStatusAndRedirectCodes();
-						let objects: [T] = try moyaResponse.map(to: [T.self]);
-						Background.runInMainThread {
-							promise.fulfill(objects);
-						}
-					}
-					catch {
-						Background.runInMainThread {
-							print(error);
-							promise.reject(error);
-						}
-					}
-					break;
-				case let .failure(error):
-					Background.runInMainThread {
-						promise.reject(error)
+					DispatchQueue.main.async {
+						UIApplication.shared.isNetworkActivityIndicatorVisible = false
+						pending.reject(error)
 					}
 				}
 			}
-		})
-		return promise.promise;
+		}
+		return pending.promise
 	}
 	
+	//a wrapper for a request which returns an array of objects
+	internal func makeRequestArray(_ type: JSONAPIRequest<T>) -> Promise<[T]> {
+		let pending = Promise<[T]>.pending()
+		self.provider.request(type) { result in
+			DispatchQueue.global(qos: .utility).async {
+				switch result {
+				case let .success(moyaResponse):
+					do {
+						_ = try moyaResponse.filterSuccessfulStatusAndRedirectCodes()
+						let objects: [T] = try moyaResponse.map(to: [T.self])
+						DispatchQueue.main.async {
+							pending.fulfill(objects)
+						}
+					} catch {
+						DispatchQueue.main.async {
+							print(error)
+							pending.reject(error)
+						}
+					}
+				case let .failure(error):
+					DispatchQueue.main.async {
+						pending.reject(error)
+					}
+				}
+			}
+		}
+		return pending.promise
+	}
 }
-
-
 
 public class JSONAPIServiceModelStore {
 	internal var objStore: [String: [String: PSJSONApiModel]] = [:]
@@ -287,5 +268,3 @@ public enum JSONAPITargetMethod {
 	case deleteObject
 	case getObject
 }
-
-
